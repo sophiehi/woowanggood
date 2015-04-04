@@ -5,13 +5,9 @@ usag: java Server [RTSP listening port]
 
 import java.io.*;
 import java.net.*;
-import java.awt.*;
 import java.util.*;
-import java.awt.event.*;
-import javax.swing.*;
-import javax.swing.Timer;
 
-public class Server extends JFrame implements ActionListener {
+public class Server  {
 
   //RTP variables:
   //----------------
@@ -60,26 +56,8 @@ public class Server extends JFrame implements ActionListener {
   //Constructor
   //--------------------------------
   public Server(){
-
-    //init Frame
-    super("Server");
-
-    //init Timer
-    timer = new Timer(FRAME_PERIOD, this);
-    timer.setInitialDelay(0);
-    timer.setCoalesce(true);
-
     //allocate memory for the sending buffer
     buf = new byte[15000]; 
-
-    //Handler to close the main window
-    addWindowListener(new WindowAdapter() {
-      public void windowClosing(WindowEvent e) {
-        //stop the timer and exit
-        timer.stop();
-        System.exit(0);
-      }});
-
   }
 
   //------------------------------------
@@ -151,30 +129,18 @@ public class Server extends JFrame implements ActionListener {
 
       if ((request_type == PLAY) && (state == READY))
       {
-        //send back response
-        theServer.send_RTSP_response(request_type);
-        //start timer
-        theServer.timer.start();
         //update state
         state = PLAYING;
         System.out.println("New RTSP state: PLAYING");
       }
       else if ((request_type == PAUSE) && (state == PLAYING))
       {
-        //send back response
-        theServer.send_RTSP_response(request_type);
-        //stop timer
-        theServer.timer.stop();
         //update state
         state = READY;
         System.out.println("New RTSP state: READY");
       }
       else if (request_type == TEARDOWN)
       {
-        //send back response
-        theServer.send_RTSP_response(request_type);
-        //stop timer
-        theServer.timer.stop();
         //close sockets
         theServer.RTSPsocket.close();
         theServer.RTPsocket.close();
@@ -186,11 +152,9 @@ public class Server extends JFrame implements ActionListener {
 
 
   //------------------------
-  //Handler for timer
+  // Send RTP Packet
   //------------------------
-  public void actionPerformed(ActionEvent e) {
-
-    System.out.println("asdgaewersdf");
+  public void sendRTPPacket() {
     //if the current image nb is less than the length of the video
     if (imagenb < VIDEO_LENGTH)
     {
@@ -199,10 +163,10 @@ public class Server extends JFrame implements ActionListener {
 
       try {
         //get next frame to send from the video, as well as its size
-        int image_length = video.getnextframe(buf);
+        int frame_length = video.getnextframe(buf);
 
         //Builds an RTPpacket object containing the frame
-        RTPpacket rtp_packet = new RTPpacket(MJPEG_TYPE, imagenb, imagenb*FRAME_PERIOD, buf, image_length);
+        RTPpacket rtp_packet = new RTPpacket(MJPEG_TYPE, imagenb, imagenb*FRAME_PERIOD, buf, frame_length);
 
         //get to total length of the full rtp packet to send
         int packet_length = rtp_packet.getlength();
@@ -226,11 +190,6 @@ public class Server extends JFrame implements ActionListener {
         System.out.println("Exception caught: "+ex);
         System.exit(0);
       }
-    }
-    else
-    {
-      //if we have reached the end of the video file, stop the timer
-      timer.stop();
     }
   }
 
