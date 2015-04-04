@@ -1,3 +1,19 @@
-*.class
-*.ts
+# java compiled
+*.class 
+* out/  
+
+# tmp
 *.swp
+
+# videos 
+*.ts  
+
+# intellij 
+.idea/  
+*.iml
+
+# etc
+*.txt 
+
+# shell script
+*.sh
