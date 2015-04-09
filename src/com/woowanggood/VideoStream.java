@@ -7,37 +7,34 @@ package com.woowanggood;
 import java.io.*;
 
 public class VideoStream {
+    private FileInputStream fis; //video file
 
-    FileInputStream fis; //video file
-    int frame_nb; //current frame nb
-
-    //-----------------------------------
-    //constructor
-    //-----------------------------------
-    public VideoStream(String filename) throws Exception{
-
-        //init variables
-        fis = new FileInputStream(filename);
-        frame_nb = 0;
+    public VideoStream(String filename) {
+        try {
+            fis = new FileInputStream(filename);
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
-    //-----------------------------------
-    // getnextframe
-    //returns the next frame as an array of byte and the size of the frame
-    //-----------------------------------
-    public int getnextframe(byte[] frame) throws Exception
-    {
+    // returns the next frame as an array of byte and the size of the frame
+    public int getNextFrame(byte[] frame) {
         int length = 0;
-        String length_string;
-        byte[] frame_length = new byte[5];
+        byte[] frameLength = new byte[5];
 
-        //read current frame length
-        fis.read(frame_length,0,5);
+        try {
+            //read current frame length
+            fis.read(frameLength, 0, 5);
 
-        //transform frame_length to integer
-        length_string = new String(frame_length);
-        length = Integer.parseInt(length_string);
+            //transform frameLength to int
+            length = Integer.parseInt(new String(frameLength));
 
-        return(fis.read(frame,0,length));
+            return fis.read(frame, 0, length);
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+            return -1;
+        }
     }
 }
