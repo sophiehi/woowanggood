@@ -165,7 +165,7 @@ public class RTSPThread extends Thread {
 
             try {
                 //get next frame to send from the video, as well as its size
-                int frame_length = video.getnextframe(buf);
+                int frame_length = video.getNextFrame(buf);
 
                 //Builds an RTPpacket object containing the frame
                 RTPpacket rtp_packet = new RTPpacket(MJPEG_TYPE, imagenb, imagenb*FRAME_PERIOD, buf, frame_length);

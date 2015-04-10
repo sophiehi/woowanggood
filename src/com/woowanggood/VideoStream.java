@@ -1,43 +1,73 @@
 package com.woowanggood;
 
-/**
- * Created by swchoi06 on 4/4/15.
- */
-
 import java.io.*;
 
 public class VideoStream {
+    private final int TS_PACKET_SIZE_BYTES = 188;
+    //FileInputStream vs. BufferedInputStream vs. RandomAccessFile
+    FileInputStream fis; //video file pointer
+    //BufferedInputStream fis;
+    int frameNumber; //current frame number
 
-    FileInputStream fis; //video file
-    int frame_nb; //current frame nb
-
-    //-----------------------------------
-    //constructor
-    //-----------------------------------
     public VideoStream(String filename) throws Exception{
-
-        //init variables
+        frameNumber = 0;
         fis = new FileInputStream(filename);
-        frame_nb = 0;
     }
 
-    //-----------------------------------
-    // getnextframe
-    //returns the next frame as an array of byte and the size of the frame
-    //-----------------------------------
-    public int getnextframe(byte[] frame) throws Exception
-    {
-        int length = 0;
-        String length_string;
-        byte[] frame_length = new byte[5];
+    public static void main(String[] args) throws Exception {
+        //test Main
+    }
 
-        //read current frame length
-        fis.read(frame_length,0,5);
+    private void rollbackByOnePacket(){
+        //todo: move file pointer 1 packet back
+        //fis = fis - TS_PACKET_SIZE_BYTES;
+    }
 
-        //transform frame_length to integer
-        length_string = new String(frame_length);
-        length = Integer.parseInt(length_string);
+    private boolean isStartingPacket() throws IOException {
+        int payloadUnitStartIndicator;
+        byte [] aPacket = new byte[ TS_PACKET_SIZE_BYTES ];
+        fis.read(aPacket, 0, TS_PACKET_SIZE_BYTES);
+        payloadUnitStartIndicator = (aPacket[1] >>> 6) & 0x01;
 
-        return(fis.read(frame,0,length));
+        switch(payloadUnitStartIndicator){
+            case 1: return true;
+            case 0: return false;
+            default: return false;//
+        }
+    }
+
+    private int howManyPacketsForNextFrame() throws IOException {
+        int numOfPackets = 0;
+
+        //count first packet
+        numOfPackets++;
+        isStartingPacket();
+
+        //count after second packet
+        while(!isStartingPacket()) {
+            numOfPackets++;
+            isStartingPacket();
+        }
+
+        rollbackByOnePacket();
+        return numOfPackets;
+    }
+
+    public int getNextFrame(byte[] frame) throws Exception {
+        int numOfPackets = howManyPacketsForNextFrame();
+        frameNumber++;
+
+        // Write the next frame to "frame[]" as an array of byte.
+        int sizeOfNextFrame = numOfPackets * TS_PACKET_SIZE_BYTES;
+        int sizeOfNextFrameCheck = fis.read (frame, 0, sizeOfNextFrame );
+
+        // Should be removed (only for debug).
+        if (sizeOfNextFrame != sizeOfNextFrameCheck){
+            System.out.println("wrong: size different");
+        }else {
+            System.out.println("correct: size same");
+        }
+
+            return sizeOfNextFrame;
     }
 }
