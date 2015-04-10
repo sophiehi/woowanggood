@@ -4,25 +4,22 @@ import java.io.*;
 
 public class VideoStream {
     private final int TS_PACKET_SIZE_BYTES = 188;
-    //FileInputStream vs. BufferedInputStream vs. RandomAccessFile
-    //FileInputStream fis; //video file pointer
     InputStream in;
-    BufferedInputStream fis;
-    int frameNumber; //current frame number
+    BufferedInputStream fis; //video file pointer
+    int frameNumber; //frame number for next frame
 
     public VideoStream(String filename) throws Exception{
         frameNumber = 0;
 
-        //in = new FileInputStream(filename);//path for ??
-        in = getClass().getResourceAsStream(filename);//path for same package
-        fis = new BufferedInputStream(in);
+        //find path for a file, if in same package
+        fis = new BufferedInputStream(getClass().getResourceAsStream(filename));
         fis.markSupported();
     }
 
     public static void main(String[] args) throws Exception {
         VideoStream vs = new VideoStream("movie_new.ts");
         int n ;
-        for(int i = 0 ; i < 10; i++) {
+        for(int i = 0 ; i < 30; i++) {
             n = vs.getNextFrameTest();
             System.out.println("\nnum of packets: " + n + "\n");
         }
@@ -35,35 +32,28 @@ public class VideoStream {
         payloadUnitStartIndicator = (aPacket[1] >>> 6) & 0x01;
 
         switch(payloadUnitStartIndicator){
-            case 1:
-                System.out.print("1 ");
-                return true;
-            case 0:
-                System.out.print("0 ");
-                return false;
-            default:
-                System.out.println("undefined err !");
-                return false;//err
+            case 1: return true;
+            case 0: return false;
+            default: System.out.println("ERROR: in isStartingPacket()!");
+                    return false;
         }
     }
 
     private int howManyPacketsForNextFrame() throws IOException {
         int numOfPackets = 0;
-        int indicator = 0;
 
-        //count first packet
+        /** 1. Count first packet(starting packet). */
         numOfPackets++;
         isStartingPacket();
 
-        //count after second packet
+        /** 2. Count after second packet(following packets), if exists. */
         while(true) {
-            fis.mark( 200 );// todo // mark = 다음에 시작할 곳인듯?
+            fis.mark( 200 );/** 2-1. MARKED. mark = maybe next starting point(?) */
             numOfPackets++;
-            if(isStartingPacket()) indicator = 1;
 
-            if (indicator == 1){
+            if(isStartingPacket()) {
                 numOfPackets--;
-                fis.reset();//todo rewind by 1 packet. marked just before
+                fis.reset();/** 2-2. Rewind by 1 packet. Jumping back to MARKED above. */
                 break;
             }
         }
@@ -74,18 +64,14 @@ public class VideoStream {
     public int getNextFrameTest() throws Exception {
         int numOfPackets = howManyPacketsForNextFrame();
         frameNumber++;
-
-        // Write the next frame to "frame[]" as an array of byte.
-        int sizeOfNextFrame = numOfPackets * TS_PACKET_SIZE_BYTES;
-
-        return numOfPackets;//for debug
+        return numOfPackets;//for debug, return different thing.
     }
 
     public int getNextFrame(byte[] frame) throws Exception {
         int numOfPackets = howManyPacketsForNextFrame();
         frameNumber++;
 
-        // Write the next frame to "frame[]" as an array of byte.
+        /** Write the next frame to "frame[]" as an array of byte. */
         int sizeOfNextFrame = numOfPackets * TS_PACKET_SIZE_BYTES;
         int sizeOfNextFrameCheck = fis.read (frame, 0, sizeOfNextFrame );
 
