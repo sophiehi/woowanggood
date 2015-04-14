@@ -24,7 +24,7 @@ public class Server {
         int RTSPPort = 3000;
 
         try {
-            serverSocket = new ServerSocket(RTSPPort);
+            serverSocket = new ServerSocket(RTSPPort++);
         }
         catch (IOException e) {
             e.printStackTrace();
@@ -33,13 +33,14 @@ public class Server {
         while (true) {
             try {
                 socket = serverSocket.accept();
+
+                // new thread for a client
+                new RTSPThread(socket).start();
+                break;
             }
             catch (IOException e) {
                 System.out.println("I/O error: " + e);
             }
-
-            // new thread for a client
-            new RTSPThread(socket).start();
         }
     }
 }
