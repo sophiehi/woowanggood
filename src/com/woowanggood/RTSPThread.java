@@ -174,11 +174,11 @@ public class RTSPThread extends Thread {
                 RTPpacket RTPPacket = new RTPpacket(TS_PAYLOAD_TYPE, imageNumber, imageNumber * FRAME_PERIOD, buf, frameLength);
 
                 //get to total length of the full rtp packet to send
-                int packetLength = RTPPacket.getlength();
+                int packetLength = RTPPacket.getLength();
 
                 //retrieve the packet bit stream and store it in an array of bytes
                 byte[] packetBits = new byte[packetLength];
-                RTPPacket.getpacket(packetBits);
+                RTPPacket.getPacket(packetBits);
 
                 //send the packet as a DatagramPacket over the UDP socket
                 StringTokenizer tokens = new StringTokenizer(RTPClientPort, "-");
@@ -187,7 +187,7 @@ public class RTSPThread extends Thread {
                 RTPSocket.send(UDPPacket);
 
                 //print the header bit stream
-                RTPPacket.printheader();
+                RTPPacket.printHeader();
 
                 System.out.println("Send frame #" + imageNumber);
             }

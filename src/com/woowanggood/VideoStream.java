@@ -74,6 +74,7 @@ public class VideoStream {
         /** Write the next frame to "frame[]" as an array of byte. */
         int sizeOfNextFrame = numOfPackets * TS_PACKET_SIZE_BYTES;
         int sizeOfNextFrameCheck = fis.read (frame, 0, sizeOfNextFrame );
+        System.out.println(frame.toString());
 
         // Should be removed (only for debug).
         if (sizeOfNextFrame != sizeOfNextFrameCheck){
