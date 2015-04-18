@@ -15,7 +15,6 @@ import java.util.*;
 
 public class Server {
     public static void main(String argv[]) throws Exception {
-        System.out.println("Server started!");
 
         ServerSocket serverSocket = null;
         Socket socket = null;
@@ -23,8 +22,10 @@ public class Server {
         //get RTSP socket port from the command line
         int RTSPPort = 3000;
 
+        System.out.println("Server started! port : " + String.valueOf(RTSPPort));
+
         try {
-            serverSocket = new ServerSocket(RTSPPort++);
+            serverSocket = new ServerSocket(RTSPPort);
         }
         catch (IOException e) {
             e.printStackTrace();
@@ -36,7 +37,6 @@ public class Server {
 
                 // new thread for a client
                 new RTSPThread(socket).start();
-                break;
             }
             catch (IOException e) {
                 System.out.println("I/O error: " + e);

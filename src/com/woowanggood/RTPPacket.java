@@ -5,7 +5,7 @@ package com.woowanggood;
  */
 import java.util.*;
 
-class RTPpacket {
+public class RTPPacket {
     final int HEADER_SIZE = 12; // size of the RTP header
     final int BYTE_SIZE = 8; // 1 byte = 8 bit
 
@@ -24,9 +24,9 @@ class RTPpacket {
 
     public int payloadSize; // size of the RTP payload
     public byte[] payload; // bitstream of the RTP payload
-
+    
     // constructor of an RTPpacket object from header fields and payload bitstream
-    public RTPpacket(int PType, int frameNumber, int time, byte[] data, int dataLength) {
+    public RTPpacket(int PType, int seqNumber, int time, byte[] data, int dataLength) {
         // fill by default header fields:
         version = 2;
         padding = 0;
@@ -36,7 +36,8 @@ class RTPpacket {
         Ssrc = 0;
 
         // fill changing header fields
-        sequenceNumber = frameNumber;
+        sequenceNumber = seqNumber;
+        System.out.println(sequenceNumber);
         timeStamp = time;
         payloadType = PType;
 
@@ -64,8 +65,8 @@ class RTPpacket {
         payload = data;
     }
 
-    // constructor of an RTPpacket object from the packet bitstream
-    public RTPpacket(byte[] packet, int packet_size) {
+    // constructor of an RTPPacket object from the packet bitstream
+    public RTPPacket(byte[] packet, int packet_size) {
         // fill default fields
         version = 2;
         padding = 0;
@@ -94,7 +95,7 @@ class RTPpacket {
         }
     }
 
-    // getPayload: return the payload bitstream of the RTPpacket and its size
+    // getPayload: return the payload bitstream of the RTPPacket and its size
     public int getPayload(byte[] data) {
         for(int i = 0; i < payloadSize; i++)
             data[i] = payload[i];

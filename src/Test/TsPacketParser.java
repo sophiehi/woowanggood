@@ -12,7 +12,9 @@ public class TsPacketParser{
     final protected static char[] hexArray = "0123456789ABCDEF".toCharArray();
     public static void main(String[] args) throws Exception{
         System.out.println("");
-        FileInputStream fis = new FileInputStream("./movie_new.ts");
+        //FileInputStream fis = new FileInputStream("./movie_new.ts");
+        FileInputStream fis = new FileInputStream( "/Users/swchoi06/IdeaProjects/woowanggood/movie.ts");
+
         byte [] data = new byte[188];
         char [] charArray = new char[33];
         for(int i=0; i< 200; i++){

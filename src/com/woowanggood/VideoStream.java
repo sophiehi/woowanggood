@@ -12,8 +12,16 @@ public class VideoStream {
         frameNumber = 0;
 
         //find path for a file, if in same package
-        fis = new BufferedInputStream(getClass().getResourceAsStream(filename));
+
+//        fis = new BufferedInputStream(getClass().getResourceAsStream("movie.ts"));
+
+        fis = new BufferedInputStream(new FileInputStream( "/Users/swchoi06/IdeaProjects/woowanggood/movie.ts"));
         fis.markSupported();
+        int numOfPackets = howManyPacketsForNextFrame();
+        frameNumber++;
+        byte [] aPacket = new byte[TS_PACKET_SIZE_BYTES ];
+
+        fis.read(aPacket, 0, TS_PACKET_SIZE_BYTES);
     }
 
     public static void main(String[] args) throws Exception {
@@ -28,7 +36,10 @@ public class VideoStream {
     private boolean isStartingPacket() throws IOException {
         int payloadUnitStartIndicator;
         byte [] aPacket = new byte[ TS_PACKET_SIZE_BYTES ];
-        fis.read(aPacket, 0, TS_PACKET_SIZE_BYTES);
+
+        int result = fis.read(aPacket, 0, TS_PACKET_SIZE_BYTES);
+        if(result == -1) return true;
+
         payloadUnitStartIndicator = (aPacket[1] >>> 6) & 0x01;
 
         switch(payloadUnitStartIndicator){
@@ -37,6 +48,7 @@ public class VideoStream {
             default: System.out.println("ERROR: in isStartingPacket()!");
                     return false;
         }
+
     }
 
     private int howManyPacketsForNextFrame() throws IOException {
@@ -48,7 +60,7 @@ public class VideoStream {
 
         /** 2. Count after second packet(following packets), if exists. */
         while(true) {
-            fis.mark( 200 );/** 2-1. MARKED. mark = maybe next starting point(?) */
+            fis.mark(200);/** 2-1. MARKED. mark = maybe next starting point(?) */
             numOfPackets++;
 
             if(isStartingPacket()) {
@@ -73,9 +85,26 @@ public class VideoStream {
 
         /** Write the next frame to "frame[]" as an array of byte. */
         int sizeOfNextFrame = numOfPackets * TS_PACKET_SIZE_BYTES;
+        System.out.printf("Packet size :  %d \n", sizeOfNextFrame);
         int sizeOfNextFrameCheck = fis.read (frame, 0, sizeOfNextFrame );
-        System.out.println(frame.toString());
+        // Should be removed (only for debug).
+        if (sizeOfNextFrame != sizeOfNextFrameCheck){
+            System.out.println("wrong: size different");
+        }else {
+            System.out.println("correct: size same");
+        }
 
+        return sizeOfNextFrame;
+    }
+
+    public int getNextSevenPacket(byte[] frame) throws Exception {
+        int numOfPackets = 7;
+        frameNumber++;
+
+        /** Write the next frame to "frame[]" as an array of byte. */
+        int sizeOfNextFrame = numOfPackets * TS_PACKET_SIZE_BYTES;
+        System.out.printf("Packet size :  %d \n", sizeOfNextFrame);
+        int sizeOfNextFrameCheck = fis.read (frame, 0, sizeOfNextFrame );
         // Should be removed (only for debug).
         if (sizeOfNextFrame != sizeOfNextFrameCheck){
             System.out.println("wrong: size different");
