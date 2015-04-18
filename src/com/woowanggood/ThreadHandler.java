@@ -3,19 +3,13 @@ package com.woowanggood;
 /**
  * Created by swchoi06 on 4/4/15.
  */
-/* Server
-usag: java Server [RTSP listening port]
----------------------- */
-
+/* usage : java Server [RTSP listening port] */
 
 import java.io.*;
 import java.net.*;
-import java.text.SimpleDateFormat;
-import java.util.*;
 
-public class Server {
+public class ThreadHandler {
     public static void main(String argv[]) throws Exception {
-
         ServerSocket serverSocket = null;
         Socket socket = null;
 
@@ -35,8 +29,9 @@ public class Server {
             try {
                 socket = serverSocket.accept();
 
-                // new thread for a client
-                new RTSPThread(socket).start();
+                //new thread for a client
+                new EventHandler(socket).start();
+                break;
             }
             catch (IOException e) {
                 System.out.println("I/O error: " + e);

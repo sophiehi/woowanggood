@@ -96,32 +96,32 @@ public class RTPPacket {
     }
 
     // getPayload: return the payload bitstream of the RTPPacket and its size
-    public int getPayload(byte[] data) {
-        for(int i = 0; i < payloadSize; i++)
-            data[i] = payload[i];
+    public byte[] getPayload() {
+        return payload;
+    }
+
+    // getPayloadSize: return the length of the payload
+    public int getPayloadSize() {
         return payloadSize;
     }
 
-    // getPayloadLength: return the length of the payload
-    public int getPayloadLength() {
-        return payloadSize;
-    }
-
-    // getLength: return the total length of the RTP packet
-    public int getLength() {
+    // getPacketSize: return the total length of the RTP packet
+    public int getPacketSize() {
         return payloadSize + HEADER_SIZE;
     }
 
     // getPacket: returns the packet bitstream and its length
-    public int getPacket(byte[] packet) {
+    public byte[] getPacket() {
+        byte[] packet = new byte[HEADER_SIZE + payloadSize];
+
         // construct the packet = header + payload
-        for(int i = 0; i < HEADER_SIZE; i++)
+        for (int i = 0; i < HEADER_SIZE; i++)
             packet[i] = header[i];
-        for(int i = 0; i < payloadSize; i++)
+        for (int i = 0; i < payloadSize; i++)
             packet[i + HEADER_SIZE] = payload[i];
 
         // return total size of the packet
-        return payloadSize + HEADER_SIZE;
+        return packet;
     }
 
     public int getTimeStamp() {
@@ -136,8 +136,8 @@ public class RTPPacket {
         return payloadType;
     }
 
-    // print headers without the SSRC
-    public void printHeader() {
+    // print headers
+    public void printRTPHeader() {
         System.out.println(Arrays.toString(payload));
     }
 
