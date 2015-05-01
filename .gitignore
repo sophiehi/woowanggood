@@ -38,5 +38,7 @@ crashlytics-build.properties
 # etc
 *.txt
 *.class
+*.ts
 
 /tmp/
+*.DS_Store

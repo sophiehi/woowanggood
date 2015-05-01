@@ -13,6 +13,9 @@ public class ThreadHandler {
         ServerSocket serverSocket = null;
         Socket socket = null;
 
+        // user IPv4
+        System.setProperty("java.net.preferIPv4Stack" , "true");
+
         //get RTSP socket port from the command line
         int RTSPPort = 3000;
 
