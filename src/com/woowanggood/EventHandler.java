@@ -9,12 +9,18 @@ public class EventHandler extends Thread {
     int state; //RTSP Server state == INIT or READY or PLAYING
     int RTSPSeqNumber = 0; //Sequence number of RTSP messages within the session
     String IP_4 = "dev.wafflestudio.net";
+<<<<<<< HEAD
     String IP_4_client = "172.20.10.1";
     String Port = "3000";
+=======
+    //String IP_4 = "172.20.7.236";
+    //String IP_4 = "192.168.0.41";
+    String IP_4_client = "0.0.0.0";
+>>>>>>> 2ea4a4a... Server setting for dev
     String RTSPSessionID = "09F6248"; //ID of the RTSP session
     String RTSPRange, RTSPContentTrack;
-    //String RTSPContentBase = "rtsp://" + IP_4 + ":" + Port+"/movie.ts/", RTSPContentType = "application/sdp";
     String RTSPContentBase, RTSPContentType = "application/sdp";
+    int RTPSocketPort = 8554;
     private Socket RTSPSocket; //socket used to send/receive RTSP messages
     int state; //RTSP Server state == INIT or READY or PLAYING
 
@@ -36,7 +42,12 @@ public class EventHandler extends Thread {
     private DatagramSocket RTPSocket; // socket to be used to send and receive UDP packets
     private DatagramPacket UDPPacket; // UDP packet containing the video frames
     private InetAddress clientIPAddr; // Client IP address
+<<<<<<< HEAD
     String RTPClientPort; // destination port for RTP packets  (given by the RTSP Client)
+=======
+    String RTPClientPort = "3000-3001"; // destination port for RTP packets  (given by the RTSP Client)
+    String RTPCastType, RTPProfile;
+>>>>>>> 2ea4a4a... Server setting for dev
 
     // Video variables:
     private VideoStreamer video; //VideoStream object used to access video frames
@@ -111,8 +122,12 @@ public class EventHandler extends Thread {
                     video = new VideoStreamer(videoFileName);
 
                     //init RTP socket
-                    StringTokenizer tokens = new StringTokenizer(RTPClientPort, "-");
-                    RTPSocket = new DatagramSocket(8554, InetAddress.getByName(IP_4));
+                    //RTPSocket = new DatagramSocket(RTPSocketPort , InetAddress.getByName(IP_4));
+                    RTPSocket = new DatagramSocket(RTPSocketPort);
+
+                    //RTPSocket = new DatagramSocket(new InetSocketAddress(InetAddress.getByName(IP_4),Integer.parseInt(tokens.nextToken())));
+                    //RTPSocket = new DatagramSocket(Integer.parseInt(tokens.nextToken()));
+                   // RTPSocket.bind(new InetSocketAddress(InetAddress.getByName(IP_4), Integer.parseInt(tokens.nextToken())));
                 }
                 catch(Exception e) {
                     e.printStackTrace();
@@ -326,8 +341,6 @@ public class EventHandler extends Thread {
 
                     RTPProfile = tokens.nextToken();
                     RTPCastType = tokens.nextToken();
-                    RTPClientPort = tokens.nextToken().substring(12);
-                    RTPClientPort = "5000-5001";
 
                     System.out.println(RTPProfile + " " + RTPCastType + " " + RTPClientPort);
                     break;
@@ -386,7 +399,8 @@ public class EventHandler extends Thread {
                             "a=range:npt=0-507.238"+CRLF+
                             "a=x-qt-text-nam:MPEG Transport Stream, streamed by the LIVE555 Media Server"+CRLF+
                             "a=x-qt-text-inf:movie.ts"+CRLF+
-                            "m=video 0 RTP/AVP 33"+CRLF+
+                            "m=video " + (new StringTokenizer(RTPClientPort, "-").nextToken()) + " RTP/AVP 33"+CRLF+
+                            //"m=video 5000 RTP/AVP 33"+CRLF+
                             "c=IN IP4 0.0.0.0"+CRLF+
                             "b=AS:5111"+CRLF+
                             "a=control:track1" + CRLF;
@@ -404,7 +418,7 @@ public class EventHandler extends Thread {
                     RTSPBufferedWriter.write("Date: " + getCurrentTime() + CRLF);
                     RTSPBufferedWriter.write("Transport: " + RTPProfile + ";" + RTPCastType + ";" +
                             "destination="+IP_4_client +";source="+ IP_4 + ";" +
-                            "client_port=" + RTPClientPort + ";server_port=9000-9001" + CRLF);
+                            "client_port=" + RTPClientPort + ";server_port=8888-8889" + CRLF);
                     RTSPBufferedWriter.write("Session: " + RTSPSessionID + ";timeout=" + 10 + CRLF);
                     RTSPBufferedWriter.write(CRLF);
                     RTSPBufferedWriter.flush();
