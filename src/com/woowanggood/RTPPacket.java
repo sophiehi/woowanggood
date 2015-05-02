@@ -3,7 +3,6 @@ package com.woowanggood;
 /**
  * Created by swchoi06 on 4/4/15.
  */
-import java.io.IOException;
 import java.util.*;
 
 public class RTPPacket {
@@ -25,9 +24,9 @@ public class RTPPacket {
 
     public int payloadSize; // size of the RTP payload
     public byte[] payload; // bitstream of the RTP payload
-    
-    // constructor of an RTPpacket object from header fields and payload bitstream
-    public RTPpacket(int PType, int seqNumber, int time, byte[] data, int dataLength) {
+
+    // constructor of an RTPPacket object from header fields and payload bitstream
+    public RTPPacket(int PType, int seqNumber, int time, byte[] data, int dataLength) {
         // fill by default header fields:
         version = 2;
         padding = 0;
