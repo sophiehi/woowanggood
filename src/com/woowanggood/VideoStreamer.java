@@ -1,4 +1,4 @@
-//package com.woowanggood;
+package com.woowanggood;
 
 import java.io.*;
 import java.util.Arrays;
@@ -47,53 +47,32 @@ public class VideoStreamer {
         }
     }
 
-    //http://stackoverflow.com/questions/1685494/what-does-this-h264-nal-header-mean
-    //http://gentlelogic.blogspot.kr/2011/11/exploring-h264-part-2-h264-bitstream.html
-    private boolean isKeyFrame(byte[] buf, int numOfPackets, int currFrameNumber ){
-        //COPY 1ST PACKET의 20번째(19th) 바이트.
-        /**
-         TS Packet packet starts as below
-         +-----------+--------------------+---------------------------------------------------
-         | TS Header | PES Header         | ES (=PES Payloas) ....
-         | (4 Bytes  | (6 Bytes)          | (178 Bytes)
-         +-----------+--------------------+---------------------------------------------------
-         ex.
-         47 40 31 31   07 00 FF FF   FF FF FF FF   00 00 01 E0   00 00 80 "C0"   0A 35 B5 39
-         * */
-        byte [] bufCopy = Arrays.copyOfRange(buf, 19, 20);
+    public boolean isH264iFrame(byte[] buf) {
+        int offset = 4;//TS header = 4 bytes
+        for (int i =0; offset+i+4< TS_PACKET_SIZE_BYTES ; i++) {
 
-        String hexString = bytesToHexString(bufCopy);
-        System.out.println(hexString);
-        if(hexString.equals("C0")) {
-            System.out.println("it's key frame!");
-            return true;
+            /** if Nal Unit Start Prefix 0x 00 00 01 or 0x 00 00 00 01 */
+            if ((buf[offset] == 0 && buf[offset + 1] == 0 && buf[offset + 2] == 1) || (buf[offset] == 0 && buf[offset + 1] == 0 && buf[offset + 2] == 0 && buf[offset + 3] == 1)) {
+
+                /** parse nalType, 0x 00 00 01 XY , XY's lower 5 bits */
+                int nalType = buf[offset + i + 2] == 1 ? (buf[offset + i + 3] & 0x1F) : (buf[offset + 4 + i] & 0x1F);
+                if (nalType == 5) {
+                    System.out.println("it's key frame!");
+                    return true;
+                }
+            }
         }
         return false;
-    }
-
-    public boolean isH264iFrame(byte[] paket)
-    {
-        int offset = 12; //starting offset of nalType, from TS packet
-        int nalType = paket[offset + 2] == 1 ? (paket[offset + 3] & 0x1f) : (paket[offset + 4] & 0x1f);
+        /*
+        int offset = 12; //TS payload offset: starting offset of nalType, from TS packet
+        int nalType = buf[offset + 2] == 1 ? (buf[offset + 3] & 0x1f) : (buf[offset + 4] & 0x1f);
         System.out.println("nal type: "+ nalType);
         if (nalType == 5) {
             System.out.println("it's key frame!");
             return true;
         }
         else return false;
-        /*
-        int RTPHeaderBytes = 0;
-
-        int fragment_type = paket[RTPHeaderBytes + 0] & 0x1F;
-        int nal_type = paket[RTPHeaderBytes + 1] & 0x1F;
-        int start_bit = paket[RTPHeaderBytes + 1] & 0x80;
-
-        if (((fragment_type == 28 || fragment_type == 29) && nal_type == 5 && start_bit == 128) || fragment_type == 5)
-        {
-            return true;
-        }
-
-        return false;*/
+        */
     }
 
     private void setFileSize(String filename){
@@ -143,16 +122,15 @@ public class VideoStreamer {
 
     public static void main(String[] args) throws Exception {
         /** with KeyFrameIndexTable */
-        VideoStreamer vs = new VideoStreamer("movie_kbs.ts", true);
+        //VideoStreamer vs = new VideoStreamer("Fantastic.ts", true);
 
         /** without KeyFrameIndexTable */
-        /*
-        VideoStreamer vs = new VideoStreamer();
+        VideoStreamer vs = new VideoStreamer("Fantastic.ts", true);
         int numBytes, numPackets;
 
         byte [] buf = new byte[MAX_FRAME_SIZE_BYTES];
 
-        for( int i=0 ; i< 30 ; i++ ) {
+        for( int i=0 ; i< vs.numOfTotalFrames ; i++ ) {
             //numPackets = vs.getNextFrameTest();
             numBytes = vs.getNextFrame(buf);
             numPackets = numBytes / TS_PACKET_SIZE_BYTES;
@@ -161,7 +139,6 @@ public class VideoStreamer {
 
             printOneFrame_BytesToHex(buf, numPackets, i);
         }
-        */
     }
 
     public static void printOneFrame_BytesToHex(byte[] buf, int numOfPackets, int currFrameNumber ){
