@@ -1,4 +1,4 @@
-package com.woowanggood;
+//package com.woowanggood;
 
 import java.io.*;
 import java.util.Arrays;
@@ -8,8 +8,8 @@ import java.util.LinkedList;
  * Created by SophiesMac on 15. 5. 1..
  */
 public class VideoStreamer {
-    public final int TS_PACKET_SIZE_BYTES = 188;
-    private final int MAX_FRAME_SIZE_BYTES = 200000;
+    public static final int TS_PACKET_SIZE_BYTES = 188;
+    private static final int MAX_FRAME_SIZE_BYTES = 200000;
     final protected static char[] hexArray = "0123456789ABCDEF".toCharArray();
     //InputStream in;
     BufferedInputStream fis; //video file pointer
@@ -17,22 +17,38 @@ public class VideoStreamer {
     int numOfTotalFrames;
     public static LinkedList<Integer> keyFrameIndexTable = new LinkedList<Integer>();
 
-    public VideoStreamer() throws Exception { this("movie_new.ts"); }
+    public VideoStreamer() throws Exception {
+        this("movie_new.ts");
+    }
+    public VideoStreamer(boolean needKeyTable) throws Exception {
+        this("movie_new.ts", true);
+    }
 
     public VideoStreamer(String filename) throws Exception {
-        frameNumber = 0;
+        this(filename, false);
+    }
+
+    public VideoStreamer(String filename, boolean needKeyTable ) throws Exception {
+        frameNumber = -1;//frame number start with 0 (zero)
 
         // find path for a file, if in same package
         fis = new BufferedInputStream(getClass().getResourceAsStream(filename));
         fis.markSupported();
+        setFileSize(filename);
 
-        int sizeInBytes = (int) new File(filename).length();
-        numOfTotalFrames = sizeInBytes / TS_PACKET_SIZE_BYTES ;
-        System.out.println("size: "+sizeInBytes+" Bytes , "+numOfTotalFrames +" frames");
-        generateKeyFrameIndexTable();
-        System.out.println("numOFKeyFrames: " + keyFrameIndexTable.size());
+        if(needKeyTable){
+            generateKeyFrameIndexTable();
+            System.out.println("numOFKeyFrames: " + keyFrameIndexTable.size());
+
+            //todo:: bring back fis at the begining point of file( temporal hack for now)
+            fis.close();
+            fis = new BufferedInputStream(getClass().getResourceAsStream(filename));
+            fis.markSupported();
+        }
     }
 
+    //http://stackoverflow.com/questions/1685494/what-does-this-h264-nal-header-mean
+    //http://gentlelogic.blogspot.kr/2011/11/exploring-h264-part-2-h264-bitstream.html
     private boolean isKeyFrame(byte[] buf, int numOfPackets, int currFrameNumber ){
         //COPY 1ST PACKET의 20번째(19th) 바이트.
         /**
@@ -55,38 +71,95 @@ public class VideoStreamer {
         return false;
     }
 
+    public boolean isH264iFrame(byte[] paket)
+    {
+        int offset = 12; //starting offset of nalType, from TS packet
+        int nalType = paket[offset + 2] == 1 ? (paket[offset + 3] & 0x1f) : (paket[offset + 4] & 0x1f);
+        System.out.println("nal type: "+ nalType);
+        if (nalType == 5) {
+            System.out.println("it's key frame!");
+            return true;
+        }
+        else return false;
+        /*
+        int RTPHeaderBytes = 0;
+
+        int fragment_type = paket[RTPHeaderBytes + 0] & 0x1F;
+        int nal_type = paket[RTPHeaderBytes + 1] & 0x1F;
+        int start_bit = paket[RTPHeaderBytes + 1] & 0x80;
+
+        if (((fragment_type == 28 || fragment_type == 29) && nal_type == 5 && start_bit == 128) || fragment_type == 5)
+        {
+            return true;
+        }
+
+        return false;*/
+    }
+
+    private void setFileSize(String filename){
+        int sizeInBytes = (int) new File(filename).length();
+        this.numOfTotalFrames = sizeInBytes / TS_PACKET_SIZE_BYTES ;
+        System.out.println("size: "+sizeInBytes+" Bytes , "+numOfTotalFrames +" frames");
+
+    }
+
     private void generateKeyFrameIndexTable() throws Exception {
         int numOfPackets;
         byte[] buf = new byte[MAX_FRAME_SIZE_BYTES];
-
-        for( int i = 1 ; i <= numOfTotalFrames ; i++ ) { //todo original
-            //for( int i = 1 ; i <= 30 ; i++ ) {
+        //for( int i = 0 ; i < numOfTotalFrames ; i++ ) { //todo original
+        for( int i = 0 ; i < 10000 ; i++ ) { //todo original
+        //for( int i = 1 ; i <= 30 ; i++ ) {
             numOfPackets = getNextFrame(buf) / TS_PACKET_SIZE_BYTES ;
 
-            if(isKeyFrame(buf, numOfPackets, i)){
+            //if(isKeyFrame(buf, numOfPackets, i)){
+            if(isH264iFrame(buf)){//http://stackoverflow.com/questions/1957427/detect-mpeg4-h264-i-frame-idr-in-rtp-stream
                 keyFrameIndexTable.add(i);
                 System.out.println("i: "+ i);
             }
         }
     }
 
-    public int findNearestKeyFrameNumber(int currFrameNumber){
-        return currFrameNumber;
+    public int findNearestKeyFrameNumber(int currFrameNumber) {
+        return findNearestKeyFrameNumber(currFrameNumber, 0, numOfTotalFrames);
+    }
+
+    public int findNearestKeyFrameNumber(int currFrameNumber, int start, int end){
+        //todo check if correct
+        if(keyFrameIndexTable.contains(currFrameNumber)) return currFrameNumber;
+        int i;
+
+        while(true){
+            if (end - start < 10)
+                return keyFrameIndexTable.get(start);
+
+            i = (start + end) / 2;
+            if( currFrameNumber < keyFrameIndexTable.get(i)) {
+                end = i;
+            } else{
+                start = i;
+            }
+        }
     }
 
     public static void main(String[] args) throws Exception {
-        VideoStreamer vs = new VideoStreamer();
+        /** with KeyFrameIndexTable */
+        VideoStreamer vs = new VideoStreamer("movie_kbs.ts", true);
 
+        /** without KeyFrameIndexTable */
         /*
-        for( int i=0 ; i<30 ; i++ ) {
-            currFrameNumber++;
+        VideoStreamer vs = new VideoStreamer();
+        int numBytes, numPackets;
+
+        byte [] buf = new byte[MAX_FRAME_SIZE_BYTES];
+
+        for( int i=0 ; i< 30 ; i++ ) {
             //numPackets = vs.getNextFrameTest();
             numBytes = vs.getNextFrame(buf);
-            //System.out.println("num of packets: " + numPackets + "\n");
-            System.out.println("size of frames: " + numBytes);
-            System.out.println("num of packets: " + numBytes/188);
+            numPackets = numBytes / TS_PACKET_SIZE_BYTES;
+            //System.out.println("size of frames: " + numBytes);
+            System.out.println("num of packets: " + numPackets);
 
-            printOneFrame_BytesToHex(buf, numBytes, currFrameNumber);
+            printOneFrame_BytesToHex(buf, numPackets, i);
         }
         */
     }
@@ -94,17 +167,6 @@ public class VideoStreamer {
     public static void printOneFrame_BytesToHex(byte[] buf, int numOfPackets, int currFrameNumber ){
         for(int j=0; j < numOfPackets ; j++){
             byte [] bufCopy = Arrays.copyOfRange(buf, j*188, (j+1)*188);
-
-            /** check if buf is a key-frame */
-            // todo (now not working)
-            //byte [] oneByte = Arrays.copyOfRange(bufCopy, 5, 6);//copy 5th Byte
-            //boolean isKeyFrame;
-            //if ((oneByte[1] & 1) == 1) isKeyFrame = true ;
-            //else isKeyFrame = false ;
-            //if (isKeyFrame){
-            //    keyFrameIndexTable.add(currFrameNumber);
-            //}
-            /** */
 
             //1. 이어서 출력
             //System.out.println(bytesToHexString(bufCopy)+"\n");
