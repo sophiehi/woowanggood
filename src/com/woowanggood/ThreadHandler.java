@@ -18,6 +18,7 @@ public class ThreadHandler {
 
         //get RTSP socket port from the command line
         int RTSPPort = 3000;
+        int RTPPort = 4000;
 
         System.out.println("Server started! port : " + String.valueOf(RTSPPort));
 
@@ -33,8 +34,7 @@ public class ThreadHandler {
                 socket = serverSocket.accept();
 
                 //new thread for a client
-                new EventHandler(socket).start();
-                break;
+                new EventHandler(socket, RTPPort++).start();
             }
             catch (IOException e) {
                 System.out.println("I/O error: " + e);
