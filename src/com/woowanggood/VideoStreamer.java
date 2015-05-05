@@ -14,8 +14,7 @@ public class VideoStreamer {
 
         // find path for a file, if in same package
         fis = new BufferedInputStream(getClass().getResourceAsStream("movie.ts"));
-
-        //fis = new BufferedInputStream(new FileInputStream( "/Users/swchoi06/IdeaProjects/woowanggood/movie.ts"));
+        // fis = new BufferedInputStream(new FileInputStream( "/Users/swchoi06/IdeaProjects/woowanggood/movie.ts"));
         fis.markSupported();
         //int numOfPackets = howManyPacketsForNextFrame();
         //frameNumber++;

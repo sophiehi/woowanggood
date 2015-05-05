@@ -8,12 +8,12 @@ import java.net.*;
  */
 public class ThreadHandler {
     public static void main(String argv[]) throws Exception {
-        final int remotePort = Integer.valueOf(argv[1]); // argv[1] == port number
+        final int remotePort = 3000; // argv[0] == port number
+        ServerSocket serverSocket = new ServerSocket(remotePort);
 
         while (true) {
             try {
-                Socket socket = new Socket(SocketHandler.host, remotePort);
-                new EventHandler(socket).start();
+                new EventHandler(serverSocket.accept()).start();
             }
             catch (IOException e) {
                 e.printStackTrace();

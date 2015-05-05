@@ -9,10 +9,11 @@ public class EventHandler extends Thread {
     /* RTSP variables: */
     int state; //RTSP Server state == INIT or READY or PLAYING
     int RTSPSeqNumber = 0; //Sequence number of RTSP messages within the session
-    String IP_4 = "dev.wafflestudio.net";
-    //String IP_4 = "172.20.7.236";
-    //String IP_4 = "192.168.0.41";
-    String IP_4_client = "0.0.0.0";
+    //String IP_4 = "192.168.0.103";
+    //String IP_4_client = "172.20.10.1";
+    String IP_4 = "localhost";
+    String IP_4_client = "localhost";
+    String Port = "3000";
     String RTSPSessionID = "09F6248"; //ID of the RTSP session
     String RTSPRange, RTSPContentTrack;
     String RTSPContentBase, RTSPContentType = "application/sdp";
@@ -388,7 +389,7 @@ public class EventHandler extends Thread {
                     RTSPBufferedWriter.write("Date: " + getCurrentTime() + CRLF);
                     RTSPBufferedWriter.write("Transport: " + RTPProfile + ";" + RTPCastType + ";" +
                             "destination="+IP_4_client +";source="+ IP_4 + ";" +
-                            "client_port=" + RTPClientPort + ";server_port=8888-8889" + CRLF);
+                            "client_port=" + RTPClientPort + ";server_port=3000-3001" + CRLF);
                     RTSPBufferedWriter.write("Session: " + RTSPSessionID + ";timeout=" + 10 + CRLF);
                     RTSPBufferedWriter.write(CRLF);
                     RTSPBufferedWriter.flush();

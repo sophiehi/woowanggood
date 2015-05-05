@@ -8,109 +8,103 @@ import java.net.Socket;
  * Created by KangGyu on 2015-05-01.
  */
 public class SocketHandler {
-    public static final String host = "proxy_server_address";
-    private static final int localPort = 3000;
-    public static final int remotePort = 4000;
+    public static final String host = "localhost";
+    public static final int localPort = 2000;
+    public static final int remotePort = 3000;
 
     public static void main(String[] args) {
         try {
             // Print a start-up message
-            System.out.println("Starting proxy for " + host + ":" + remotePort + " on port " + localPort);
-            // And start running the server
-            runServer();
+            System.out.println("Starting proxy server for " + host + ":" + remotePort + " on port " + localPort);
+
+            ServerSocket proxyServerSocket = null;
+            try {
+                // Create a ServerSocket to listen for connections with clients
+                proxyServerSocket = new ServerSocket(localPort);
+            }
+            catch (IOException e) {
+                System.out.println("proxyServerSocket open error");
+                e.printStackTrace();
+            }
+
+            while (true) {
+                new ProxyServerThread(proxyServerSocket.accept()).start();
+            }
         }
         catch (Exception e) {
+            System.out.println("runProxyServer part error");
             e.printStackTrace();
         }
     }
 
-    private static void runServer() {
-        ServerSocket proxyServerSocket = null;
+    // A thread to read the client's requests and pass them to the server.
+    // A separate thread for asynchronous.
+    static class ProxyServerThread extends Thread {
+        private Socket clientSocket;
+        private Socket serverSocket;
 
-        final byte[] request = new byte[1024]; // 1MB
-        byte[] reply = new byte[4096]; // 4MB
+        private DataInputStream disWithClient, disWithServer;
+        private DataOutputStream dosWithClient, dosWithServer;
 
-        try {
-            // Create a ServerSocket to listen for connections with clients
-            proxyServerSocket = new ServerSocket(localPort);
+        public ProxyServerThread(Socket clientSocket) {
+            this.clientSocket = clientSocket;
         }
-        catch (IOException e) {
-            e.printStackTrace();
-        }
 
-        while (true) {
-            Socket clientSocket = null, serverSocket = null;
+        @Override
+        public void run() {
+            final byte[] request = new byte[1024]; // 1MB
+            byte[] reply = new byte[4096]; // 4MB
 
             try {
-                // Wait for a connection on the local port
-                clientSocket = proxyServerSocket.accept();
+                disWithClient = new DataInputStream(clientSocket.getInputStream());
+                dosWithClient = new DataOutputStream(clientSocket.getOutputStream());
+            }
+            catch (Exception e) {
+                System.out.println("Open stream with client error\n" + e.getMessage());
+            }
+
+            try {
                 serverSocket = new Socket(host, remotePort);
+                disWithServer = new DataInputStream(serverSocket.getInputStream());
+                dosWithServer = new DataOutputStream(serverSocket.getOutputStream());
+            }
+            catch (Exception e) {
+                System.out.println("connect server socket\n" + e.getMessage());
+            }
 
-                DataOutputStream dosWithClient = new DataOutputStream(clientSocket.getOutputStream());
-                DataInputStream disWithClient = new DataInputStream(clientSocket.getInputStream());
-
-                DataOutputStream dosWithServer = new DataOutputStream(serverSocket.getOutputStream());
-                DataInputStream disWithServer = new DataInputStream(serverSocket.getInputStream());
-
-                // A thread to read the client's requests and pass them to the server.
-                // A separate thread for asynchronous.
-                new Thread() {
-                    public void run() {
+            new Thread() {
+                public void run() {
+                    try {
                         int bytes;
-
-                        try {
-                            while ((bytes = disWithClient.read(request)) != -1) {
-                                dosWithServer.write(request, 0, bytes);
-                                dosWithServer.flush();
-                            }
+                        while ((bytes = disWithClient.read(request)) != -1) {
+                            System.out.println("Client Request bytes :\n");
+                            dosWithServer.write(request, 0, bytes);
+                            dosWithServer.flush();
                         }
-                        catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                        finally {
-                            try {
-                                // The client closed the connection to us, so close out connection to the server(Computer A, Computer B).
-                                dosWithServer.close();
-                                disWithClient.close();
-                            }
-                            catch (IOException e) {
-                                e.printStackTrace();
-                            }
-                        }
+                    } catch (IOException e) {
+                        System.out.println("Client-To-Server write error\n" + e.getMessage());
                     }
-                }.start();
-                // Start the client-to-server request thread running
 
-                // Read the server's responses
-                // and pass them back to the client.
-                new Thread() {
-                    public void run() {
-                        int bytes;
-
-                        try {
-                            while ((bytes = disWithServer.read(reply)) != -1) {
-                                dosWithClient.write(reply, 0, bytes);
-                                dosWithClient.flush();
-                            }
-                        }
-                        catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                        finally {
-                            try {
-                                // The server(Computer A, Computer B) closed its connection to us, so we close our connection to our client.
-                                dosWithClient.close();
-                                disWithServer.close();
-                            }
-                            catch (IOException e) {
-                                e.printStackTrace();
-                            }
-                        }
+                    try {
+                        dosWithServer.close();
+                    } catch (IOException e) {
+                        System.out.println("dosWithServer close error\n" + e.getMessage());
                     }
-                }.start();
+                }
+            }.start();
+
+            // Read the server's responses
+            // and pass them back to the client.
+            try {
+                int bytes;
+                while ((bytes = disWithServer.read(reply)) != -1) {
+                    System.out.println("Server Response bytes :\n");
+                    dosWithClient.write(reply, 0, bytes);
+                    dosWithClient.flush();
+                }
             }
             catch (IOException e) {
-                e.printStackTrace();
+                System.out.println("Server-To-Client write error\n" + e.getMessage());
             }
             finally {
                 try {
@@ -119,9 +113,16 @@ public class SocketHandler {
                     if (clientSocket != null)
                         clientSocket.close();
                 }
-                catch (IOException e) {
-                    e.printStackTrace();
+                catch (Exception e) {
+                    System.out.println("Sockets close\n" + e.getMessage());
                 }
+            }
+
+            try {
+                dosWithClient.close();
+            }
+            catch (Exception e) {
+                System.out.println("dosWithClient close error\n" + e.getMessage());
             }
         }
     }
