@@ -48,9 +48,32 @@ public class VideoStreamer {
     }
 
     public boolean isH264iFrame(byte[] buf, int numOfPackets) {
-        int offset    = 4;   /** start offset */ //todo 3? 4? //TS header = 4 bytes
-        int endOffset = 4;   /** end offset */ //checking 4 bytes each.
+        int offset    = 4;   /** start offset */ //TS header = 4 bytes
+        int endOffset = 4;   /** end offset */   //checking 4 bytes each.
         byte[] bufTemp;
+
+        /** parse PCR */
+        int adaptationFieldExistFlag = ( buf[3] & 0x20 ) >> 5;
+        if(adaptationFieldExistFlag == 1) {
+            int PCRExistFlag = (buf[5] & 0x10) >> 4;
+            if(PCRExistFlag == 1){
+                long pcr_base = ((buf[6] & 0xFFL)<<25)
+                        | ((buf[7] & 0xFFL)<<17)
+                        | ((buf[8] & 0xFFL)<<9)
+                        | ((buf[9] & 0xFFL)<<1)
+                        | ((buf[10]& 0xFFL)>>7);
+
+                long pcr_ext = ((buf[10] & 0x01L)) << 8
+                        | (buf[11] & 0xFFL);
+
+                double PCR = ((double)pcr_base / 90000.0f) + ((double)pcr_ext/27000000.0f);
+                System.out.println("PCR :" + PCR + " ");
+
+                //long PCR_27MHz_9bit = ((buf[11] & 0x7F)<<2)| ((buf[12] & 0xC0) >> 6);
+                //System.out.println("PCR: " +  PCR_90KHz_33bit +", " + PCR_27MHz_9bit);
+                //System.out.println("PCR: "+ PCR_90KHz_33bit + a + " " + b + " " + c + " " + d + " " + e + " ");
+            }
+        }
 
         for (int i = 0; offset+i+endOffset < (TS_PACKET_SIZE_BYTES * numOfPackets); i++) {
             //todo if state == 2
@@ -142,10 +165,11 @@ public class VideoStreamer {
     public static void main(String[] args) throws Exception {
         //int counter = 10;
         /** with KeyFrameIndexTable */
-        //VideoStreamer vs = new VideoStreamer("movie.ts", true);
+        VideoStreamer vs = new VideoStreamer("movie.ts", true);
 
 
         /** without KeyFrameIndexTable */
+        /*
         VideoStreamer vs = new VideoStreamer("movie.ts", false);
         int numBytes, numPackets;
 
@@ -159,7 +183,7 @@ public class VideoStreamer {
             System.out.println("num of packets: " + numPackets);
 
             printOneFrame_BytesToHex_noSpaces(buf, numPackets, i);
-        }
+        }*/
 
         /** print num */
         System.out.println("\n\nnum of key frames total: "+ keyFrameIndexTable.size());
