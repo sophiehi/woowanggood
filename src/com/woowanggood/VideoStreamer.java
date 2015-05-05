@@ -8,13 +8,13 @@ import java.util.LinkedList;
  * Created by SophiesMac on 15. 5. 1..
  */
 public class VideoStreamer {
-    public static final int TS_PACKET_SIZE_BYTES = 188;
+    private static final int TS_PACKET_SIZE_BYTES = 188;
     private static final int MAX_FRAME_SIZE_BYTES = 200000;
-    final protected static char[] hexArray = "0123456789ABCDEF".toCharArray();
-    //InputStream in;
-    BufferedInputStream fis; //video file pointer
-    int frameNumber; //frame number for next frame
-    int numOfTotalFrames;
+    private final static char[] hexArray = "0123456789ABCDEF".toCharArray();
+    private BufferedInputStream fis; //video file pointer
+    private int frameNumber; //frame number for next frame
+    private int numOfTotalFrames;
+
     public static LinkedList<Integer> keyFrameIndexTable = new LinkedList<Integer>();
 
     public VideoStreamer() throws Exception {
@@ -38,7 +38,7 @@ public class VideoStreamer {
 
         if(needKeyTable){
             generateKeyFrameIndexTable();
-            System.out.println("numOFKeyFrames: " + keyFrameIndexTable.size());
+            System.out.println("\nnumOfKeyFrames: " + keyFrameIndexTable.size());
 
             //todo:: bring back fis at the begining point of file( temporal hack for now)
             fis.close();
@@ -47,17 +47,39 @@ public class VideoStreamer {
         }
     }
 
-    public boolean isH264iFrame(byte[] buf) {
-        int offset = 4;//TS header = 4 bytes
-        for (int i =0; offset+i+4< TS_PACKET_SIZE_BYTES ; i++) {
+    public boolean isH264iFrame(byte[] buf, int numOfPackets) {
+        int offset    = 4;   /** start offset */ //todo 3? 4? //TS header = 4 bytes
+        int endOffset = 4;   /** end offset */ //checking 4 bytes each.
+        byte[] bufTemp;
 
-            /** if Nal Unit Start Prefix 0x 00 00 01 or 0x 00 00 00 01 */
-            if ((buf[offset] == 0 && buf[offset + 1] == 0 && buf[offset + 2] == 1) || (buf[offset] == 0 && buf[offset + 1] == 0 && buf[offset + 2] == 0 && buf[offset + 3] == 1)) {
+        for (int i = 0; offset+i+endOffset < (TS_PACKET_SIZE_BYTES * numOfPackets); i++) {
+            //todo if state == 2
+            //todo if PID   == VIDEO_STREAM_PID
+            //todo if VTYPE == H.264
 
-                /** parse nalType, 0x 00 00 01 XY , XY's lower 5 bits */
-                int nalType = buf[offset + i + 2] == 1 ? (buf[offset + i + 3] & 0x1F) : (buf[offset + 4 + i] & 0x1F);
-                if (nalType == 5) {
-                    System.out.println("it's key frame!");
+            /** if Nal Unit Start Prefix 0x 00 00 01 (0x 00 00 00 01 excluded for now ) */
+            if (buf[offset+i] == 0 && buf[offset+i+1] == 0 && buf[offset+i+2] == 1) {
+
+                /** nalType = 5 = XY's lower 5 bits in "0x 00 00 01 XY". (so, XY = 65)
+                 * (official ref: https://tools.ietf.org/html/rfc3984)
+                 * */
+
+                /**
+                 fining IDR-flag in NAL unit: in BITs (in ES, if H.264)
+                 +--------------------------------------------------+
+                 | nal unit start pattern      | F | NRI | nalType  |
+                 +--------------------------------------------------+
+                 | 00000000 00000000 00000001  | 0 | 11  | 00101    |
+                 +--------------------------------------------------+
+                 */
+                int forbiddenZeroBit =  buf[offset + i + 3] & 0x80;
+                int NRI              = (buf[offset + i + 3] & 0x60) >> 5;// nalRefIdc = 11
+                int nalType          =  buf[offset + i + 3] & 0x1F;
+
+                if (forbiddenZeroBit == 0 & NRI == 3 & nalType == 5) {
+                    bufTemp = Arrays.copyOfRange(buf, offset , offset+i+4);
+                    //bufTemp = Arrays.copyOfRange(buf, offset+i, offset+i+4); //todo original
+                    System.out.println(nalType+ " it's key frame! " + bytesToHexString(bufTemp));
                     return true;
                 }
             }
@@ -85,15 +107,12 @@ public class VideoStreamer {
     private void generateKeyFrameIndexTable() throws Exception {
         int numOfPackets;
         byte[] buf = new byte[MAX_FRAME_SIZE_BYTES];
-        //for( int i = 0 ; i < numOfTotalFrames ; i++ ) { //todo original
-        for( int i = 0 ; i < 10000 ; i++ ) { //todo original
-        //for( int i = 1 ; i <= 30 ; i++ ) {
-            numOfPackets = getNextFrame(buf) / TS_PACKET_SIZE_BYTES ;
+        for( int i = 0 ; i < numOfTotalFrames ; i++ ) {
+            numOfPackets = getNextFrame(buf) / TS_PACKET_SIZE_BYTES;
 
-            //if(isKeyFrame(buf, numOfPackets, i)){
-            if(isH264iFrame(buf)){//http://stackoverflow.com/questions/1957427/detect-mpeg4-h264-i-frame-idr-in-rtp-stream
+            if(isH264iFrame(buf, numOfPackets)){//http://stackoverflow.com/questions/1957427/detect-mpeg4-h264-i-frame-idr-in-rtp-stream
                 keyFrameIndexTable.add(i);
-                System.out.println("i: "+ i);
+                System.out.println("i: "+ i+", numOfPackets: " + numOfPackets);
             }
         }
     }
@@ -121,11 +140,13 @@ public class VideoStreamer {
     }
 
     public static void main(String[] args) throws Exception {
+        //int counter = 10;
         /** with KeyFrameIndexTable */
-        //VideoStreamer vs = new VideoStreamer("Fantastic.ts", true);
+        //VideoStreamer vs = new VideoStreamer("movie.ts", true);
+
 
         /** without KeyFrameIndexTable */
-        VideoStreamer vs = new VideoStreamer("Fantastic.ts", true);
+        VideoStreamer vs = new VideoStreamer("movie.ts", false);
         int numBytes, numPackets;
 
         byte [] buf = new byte[MAX_FRAME_SIZE_BYTES];
@@ -137,7 +158,18 @@ public class VideoStreamer {
             //System.out.println("size of frames: " + numBytes);
             System.out.println("num of packets: " + numPackets);
 
-            printOneFrame_BytesToHex(buf, numPackets, i);
+            printOneFrame_BytesToHex_noSpaces(buf, numPackets, i);
+        }
+
+        /** print num */
+        System.out.println("\n\nnum of key frames total: "+ keyFrameIndexTable.size());
+    }
+
+    public static void printOneFrame_BytesToHex_noSpaces(byte[] buf, int numOfPackets, int currFrameNumber ){
+        for(int j=0; j < numOfPackets ; j++){
+            byte [] bufCopy = Arrays.copyOfRange(buf, j*188, (j+1)*188);
+
+            System.out.println(bytesToHexString(bufCopy)+"\n");
         }
     }
 
@@ -167,8 +199,6 @@ public class VideoStreamer {
             hexChars[j * 2] = hexArray[v >>> 4];
             hexChars[j * 2 + 1] = hexArray[v & 0x0F];
         }
-        /** check if it's Key frame */
-        //if (hexChars[38] == 'C' && hexChars[39] == '0')
 
         return hexChars;
     }
@@ -188,6 +218,7 @@ public class VideoStreamer {
         byte [] aPacket = new byte[ TS_PACKET_SIZE_BYTES ];
 
         int result = fis.read(aPacket, 0, TS_PACKET_SIZE_BYTES);
+        //todo output.write(); //http://examples.javacodegeeks.com/core-java/io/file/4-ways-to-copy-file-in-java/
         if(result == -1) return true; //error, false ?
 
         payloadUnitStartIndicator = (aPacket[1] >>> 6) & 0x01;
