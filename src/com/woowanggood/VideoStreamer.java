@@ -13,19 +13,16 @@ public class VideoStreamer {
     private static final int MAX_FRAME_SIZE_BYTES = 200000;
     private static final char[] HEX_ARRAY = "0123456789ABCDEF".toCharArray();
 
-    private BufferedInputStream fis; //video file pointer //todo local variable?
+    private RandomAccessFile fis;
     private int frameNumber;         //frame number for next frame
     private int numOfTotalFrames;
 
-    //iframe =keyframe = IDR (in H.264) = xx (in H.265)
+    //iframe = keyframe = IDR (in H.264) = xx (in H.265)
     public static LinkedList<Integer>       iFrames        = new LinkedList<Integer>();
     public static LinkedList<PCR_to_iFrame> PCR_to_iFrames = new LinkedList<PCR_to_iFrame>();
 
     public VideoStreamer() throws Exception {
         this("movie_new.ts");
-    }
-    public VideoStreamer(boolean needKeyTable) throws Exception {
-        this("movie_new.ts", true);
     }
     public VideoStreamer(String filename) throws Exception {
         this(filename, false);
@@ -38,11 +35,10 @@ public class VideoStreamer {
     public VideoStreamer(String filename, boolean needKeyTable, int keyTableType ) throws Exception {
         //int keyTableType= 1: iframeIndex list, 2: (pcr, iframeIndex) list, 3:tree, 4: opt augmented red-black tree
         frameNumber = -1;//frame number start with 0 (zero)
+        setFileSize(filename);
 
         // find path for a file, if in same path with this java code file
-        fis = new BufferedInputStream(getClass().getResourceAsStream(filename));
-        fis.markSupported();
-        setFileSize(filename);
+        fis = new RandomAccessFile(filename, "r");//todo: 여기서는 그냥 bufferedInputStream이 나은가?
 
         if(needKeyTable){
 
@@ -64,10 +60,10 @@ public class VideoStreamer {
                     break;
             }
 
-            //todo:: bring back fis at the begining point of file (temporal hack for now)
-            fis.close();
-            fis = new BufferedInputStream(getClass().getResourceAsStream(filename));
-            fis.markSupported();
+            fis.seek(0);
+            //-- bring back fis at the begining point of file (temporal hack for now)
+            //-- fis.close();
+            //-- fis = new RandomAccessFile(filename, "r");
         }
     }
 
@@ -161,26 +157,30 @@ public class VideoStreamer {
 
     }
 
-    private int findNearestPCRIndex(double thePCR){//thePCR 보다 작은 PCR 중에, 가장 큰 PCR 을 찾기
-        for(int i=0 ; i < PCR_to_iFrames.size(); i++){
+    private int findBiggestPreviousPCRIndex(double thePCR){
+        // find BiggestPreviousPCR from thePCR
+        // 즉, thePCR 보다 작은 PCR 중에 가장 큰 PCR 을 찾기
+
+          for(int i=0 ; i < PCR_to_iFrames.size(); i++){
             double PCR = PCR_to_iFrames.get(i).getPcr();
             if (thePCR < PCR) return (i-1);
         }
         return -1;
     }
 
-    //TODO 3
-    public void moveFisForRandomAccess(double playPositionInseconds){
-        //ref: http://www.java2s.com/Code/Python/File/Useseektomovefilepointer.htm
-        int PCRIndex = findNearestPCRIndex(playPositionInseconds);
-        int iFrameIndex = PCR_to_iFrames.get(PCRIndex).getiFrameIndex();
-
-        //todo URGENT
-        //fis.seek(TS_PACKET_SIZE_BYTES * iFrameIndex);
-        // http://docs.oracle.com/javase/6/docs/api/java/io/RandomAccessFile.html
+    public void seek(double playPositionInseconds) throws IOException {
+        moveFisForRandomAccess(playPositionInseconds);
+        System.out.println("seek: "+ playPositionInseconds + ": "+ fis.getFilePointer()/TS_PACKET_SIZE_BYTES);
     }
 
-    //TODO 2
+    public void moveFisForRandomAccess(double playPositionInseconds) throws IOException {
+        int PCRIndex = findBiggestPreviousPCRIndex(playPositionInseconds);
+        int iFrameIndex = PCR_to_iFrames.get(PCRIndex).getiFrameIndex();
+        System.out.println("PCRIndex: "+ PCRIndex+", FrameIndex: "+iFrameIndex);
+
+        fis.seek(TS_PACKET_SIZE_BYTES * iFrameIndex);
+    }
+
     private void generateKeyFrameIndexTable_list() throws Exception {
         //앞에서부터 iFrame을 찾은 뒤, 바로 연달아오는 PCR과 묶어서 table에 삽입. (즉 PCR과, 그 PCR바로 직전의 iFrame 묶기.)
 
@@ -193,8 +193,8 @@ public class VideoStreamer {
             numOfPackets = getNextFrame(buf) / TS_PACKET_SIZE_BYTES;
 
             if(isH264iFrame(buf, numOfPackets)){ iFrameIndex = i;}
-
             double currPCR = parsePCRFromOneFrame(buf, numOfPackets);
+
             if (currPCR > 0.0 && iFrameIndex > 0) {
                 lastPCR = currPCR;
                 PCR_to_iFrames.addLast(new PCR_to_iFrame(lastPCR, iFrameIndex));
@@ -206,12 +206,16 @@ public class VideoStreamer {
     private void generateIndexer_tree() {
     }
 
-    private boolean isVideoFrame(){
+    // TODO : 어디서 쓰는거지?
+    private boolean isVideoFrame(byte [] buf){
         //if E0 then true
         return false;
     }
 
-
+    //todo
+    private boolean isH264 (){
+        return false;
+    }
 
     private void generateKeyFrameIndexTable() throws Exception {
         // fake
@@ -227,34 +231,13 @@ public class VideoStreamer {
         }
     }
 
-    //fake
-    public int findNearestKeyFrameNumber(int currFrameNumber) {
-        return findNearestKeyFrameNumber(currFrameNumber, 0, numOfTotalFrames);
-    }
-    //fake
-    public int findNearestKeyFrameNumber(int currFrameNumber, int start, int end){
-        //todo check if correct
-        if(iFrames.contains(currFrameNumber)) return currFrameNumber;
-        int i;
-
-        while(true){
-            if (end - start < 10)
-                return iFrames.get(start);
-
-            i = (start + end) / 2;
-            if( currFrameNumber < iFrames.get(i)) {
-                end = i;
-            } else{
-                start = i;
-            }
-        }
-    }
-
     public static void main(String[] args) throws Exception {
-        //int counter = 10;
         /** with KeyFrameIndexTable */
         VideoStreamer vs = new VideoStreamer("movie.ts", true);
 
+        /** test Random Access */
+        vs.seek(9.11);
+        vs.seek(107.0);
 
         /** without KeyFrameIndexTable */
         /*
@@ -272,6 +255,7 @@ public class VideoStreamer {
 
             printOneFrame_BytesToHex_noSpaces(buf, numPackets, i);
         }*/
+
     }
 
     public static void printOneFrame_BytesToHex_noSpaces(byte[] buf, int numOfPackets, int currFrameNumber ){
@@ -340,31 +324,8 @@ public class VideoStreamer {
         }
     }
 
-    private int howManyPacketsForNextFrame_WithFisMovingForward() throws IOException {
-        int numOfPackets = 0;
-
-        /** 1. Count first packet(starting packet). */
-        numOfPackets++;
-        isStartingPacket();
-
-        /** 2. Count after second packet(following packets), if exists. */
-        while(true) {
-            fis.mark(200);/** 2-1. MARKED. mark = maybe next starting point(?) */
-            numOfPackets++;
-
-            if (isStartingPacket()) {
-                numOfPackets--;
-                fis.reset();/** 2-2. Rewind by 1 packet. Jumping back to MARKED above. */
-                break;
-            }
-        }
-
-        return numOfPackets;
-    }
-
-
     private int howManyPacketsForNextFrame() throws IOException {
-        fis.mark(MAX_FRAME_SIZE_BYTES);
+        long currFis = fis.getFilePointer();//mark fis curr position.
         int numOfPackets = 0;
 
         /** 1. Count first packet(starting packet). */
@@ -381,15 +342,8 @@ public class VideoStreamer {
             }
         }
 
-        fis.reset();
+        fis.seek(currFis);//roll back.
         return numOfPackets;
-    }
-
-    public int getNextFrameTest() throws Exception {
-        int numOfPackets = howManyPacketsForNextFrame();
-        frameNumber++;
-        System.out.println(frameNumber+", "+ numOfPackets);
-        return numOfPackets;//for debug, return different thing.
     }
 
     public int getNextFrame(byte[] frame) throws Exception {
@@ -403,10 +357,6 @@ public class VideoStreamer {
         System.out.printf("Frame size :  %d \n", sizeOfNextFrame);
         int sizeOfNextFrameCheck = fis.read (frame, 0, sizeOfNextFrame );
 
-        // Should be removed (only for debug).
-        //if (sizeOfNextFrame != sizeOfNextFrameCheck){ System.out.println("wrong: size different");
-        //}else { System.out.println("correct: size same"); }
-
         return sizeOfNextFrame;
     }
 
@@ -418,9 +368,6 @@ public class VideoStreamer {
         int sizeOfNextFrame = numOfPackets * TS_PACKET_SIZE_BYTES;
         System.out.printf("Frame size :  %d \n", sizeOfNextFrame);
         int sizeOfNextFrameCheck = fis.read (frame, 0, sizeOfNextFrame );
-        // Should be removed (only for debug).
-        //if (sizeOfNextFrame != sizeOfNextFrameCheck){ System.out.println("wrong: size different");
-        //} else { System.out.println("correct: size same"); }
 
         return sizeOfNextFrame;
     }
