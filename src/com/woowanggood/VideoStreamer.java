@@ -8,14 +8,18 @@ import java.util.LinkedList;
  * Created by SophiesMac on 15. 5. 1..
  */
 public class VideoStreamer {
+
     private static final int TS_PACKET_SIZE_BYTES = 188;
     private static final int MAX_FRAME_SIZE_BYTES = 200000;
-    private final static char[] hexArray = "0123456789ABCDEF".toCharArray();
-    private BufferedInputStream fis; //video file pointer
-    private int frameNumber; //frame number for next frame
+    private static final char[] HEX_ARRAY = "0123456789ABCDEF".toCharArray();
+
+    private BufferedInputStream fis; //video file pointer //todo local variable?
+    private int frameNumber;         //frame number for next frame
     private int numOfTotalFrames;
 
-    public static LinkedList<Integer> keyFrameIndexTable = new LinkedList<Integer>();
+    //iframe =keyframe = IDR (in H.264) = xx (in H.265)
+    public static LinkedList<Integer>       iFrames        = new LinkedList<Integer>();
+    public static LinkedList<PCR_to_iFrame> PCR_to_iFrames = new LinkedList<PCR_to_iFrame>();
 
     public VideoStreamer() throws Exception {
         this("movie_new.ts");
@@ -23,28 +27,71 @@ public class VideoStreamer {
     public VideoStreamer(boolean needKeyTable) throws Exception {
         this("movie_new.ts", true);
     }
-
     public VideoStreamer(String filename) throws Exception {
         this(filename, false);
     }
 
-    public VideoStreamer(String filename, boolean needKeyTable ) throws Exception {
+    public VideoStreamer(String filename, boolean needKeyTable) throws Exception {
+        this(filename, needKeyTable, 2);
+    }
+
+    public VideoStreamer(String filename, boolean needKeyTable, int keyTableType ) throws Exception {
+        //int keyTableType= 1: iframeIndex list, 2: (pcr, iframeIndex) list, 3:tree, 4: opt augmented red-black tree
         frameNumber = -1;//frame number start with 0 (zero)
 
-        // find path for a file, if in same package
+        // find path for a file, if in same path with this java code file
         fis = new BufferedInputStream(getClass().getResourceAsStream(filename));
         fis.markSupported();
         setFileSize(filename);
 
         if(needKeyTable){
-            generateKeyFrameIndexTable();
-            System.out.println("\nnumOfKeyFrames: " + keyFrameIndexTable.size());
+
+            switch(keyTableType){
+                case 1:
+                    generateKeyFrameIndexTable();
+                    System.out.println("\n\nnum of key frames total: " + iFrames.size());
+                    break;
+                case 2:
+                    generateKeyFrameIndexTable_list();
+                    System.out.println("\nnumOfKeyFrames: " + PCR_to_iFrames.size());
+                    for (int i = 0; i < PCR_to_iFrames.size(); i++) {
+                        System.out.println("PCR("+i+"): " + PCR_to_iFrames.get(i).getPcr()
+                                + ", iframeIndex: " + PCR_to_iFrames.get(i).getiFrameIndex());
+                    }
+                    System.out.println("\n\nnum of key frames total: " + PCR_to_iFrames.size());
+                    break;
+                default:
+                    break;
+            }
 
             //todo:: bring back fis at the begining point of file( temporal hack for now)
             fis.close();
             fis = new BufferedInputStream(getClass().getResourceAsStream(filename));
             fis.markSupported();
         }
+    }
+
+    public double parsePCRFromOneFrame(byte[] buf, int numOfPackets) {/** buf = frame */
+        /** parse PCR */
+        int adaptationFieldExistFlag = ( buf[3] & 0x20 ) >> 5;
+        if (adaptationFieldExistFlag == 1) {
+            int PCRExistFlag = (buf[5] & 0x10) >> 4;
+            if(PCRExistFlag == 1){
+                long pcrBase =    ((buf[6] & 0xFFL)<<25)
+                        | ((buf[7] & 0xFFL)<<17)
+                        | ((buf[8] & 0xFFL)<<9)
+                        | ((buf[9] & 0xFFL)<<1)
+                        | ((buf[10]& 0xFFL)>>7);
+
+                long pcrExt = ((buf[10] & 0x01L) << 8)
+                        | (buf[11] & 0xFFL);
+
+                double PCR = ((double)pcrBase / 90000.0f) + ((double)pcrExt/27000000.0f);
+                System.out.println("PCR :" + PCR + " ");
+                return PCR;
+            }
+        }
+        return -1.0;
     }
 
     public boolean isH264iFrame(byte[] buf, int numOfPackets) {
@@ -54,24 +101,20 @@ public class VideoStreamer {
 
         /** parse PCR */
         int adaptationFieldExistFlag = ( buf[3] & 0x20 ) >> 5;
-        if(adaptationFieldExistFlag == 1) {
+        if (adaptationFieldExistFlag == 1) {
             int PCRExistFlag = (buf[5] & 0x10) >> 4;
             if(PCRExistFlag == 1){
-                long pcr_base = ((buf[6] & 0xFFL)<<25)
-                        | ((buf[7] & 0xFFL)<<17)
-                        | ((buf[8] & 0xFFL)<<9)
-                        | ((buf[9] & 0xFFL)<<1)
-                        | ((buf[10]& 0xFFL)>>7);
+                long pcrBase =    ((buf[6] & 0xFFL)<<25)
+                                | ((buf[7] & 0xFFL)<<17)
+                                | ((buf[8] & 0xFFL)<<9)
+                                | ((buf[9] & 0xFFL)<<1)
+                                | ((buf[10]& 0xFFL)>>7);
 
-                long pcr_ext = ((buf[10] & 0x01L)) << 8
-                        | (buf[11] & 0xFFL);
+                long pcrExt = ((buf[10] & 0x01L) << 8)
+                              | (buf[11] & 0xFFL);
 
-                double PCR = ((double)pcr_base / 90000.0f) + ((double)pcr_ext/27000000.0f);
+                double PCR = ((double)pcrBase / 90000.0f) + ((double)pcrExt/27000000.0f);
                 System.out.println("PCR :" + PCR + " ");
-
-                //long PCR_27MHz_9bit = ((buf[11] & 0x7F)<<2)| ((buf[12] & 0xC0) >> 6);
-                //System.out.println("PCR: " +  PCR_90KHz_33bit +", " + PCR_27MHz_9bit);
-                //System.out.println("PCR: "+ PCR_90KHz_33bit + a + " " + b + " " + c + " " + d + " " + e + " ");
             }
         }
 
@@ -96,7 +139,7 @@ public class VideoStreamer {
                  +--------------------------------------------------+
                  */
                 int forbiddenZeroBit =  buf[offset + i + 3] & 0x80;
-                int NRI              = (buf[offset + i + 3] & 0x60) >> 5;// nalRefIdc = 11
+                int NRI              = (buf[offset + i + 3] & 0x60) >> 5;// NRI = nalRefIdc = 11
                 int nalType          =  buf[offset + i + 3] & 0x1F;
 
                 if (forbiddenZeroBit == 0 & NRI == 3 & nalType == 5) {
@@ -108,16 +151,6 @@ public class VideoStreamer {
             }
         }
         return false;
-        /*
-        int offset = 12; //TS payload offset: starting offset of nalType, from TS packet
-        int nalType = buf[offset + 2] == 1 ? (buf[offset + 3] & 0x1f) : (buf[offset + 4] & 0x1f);
-        System.out.println("nal type: "+ nalType);
-        if (nalType == 5) {
-            System.out.println("it's key frame!");
-            return true;
-        }
-        else return false;
-        */
     }
 
     private void setFileSize(String filename){
@@ -126,35 +159,84 @@ public class VideoStreamer {
         System.out.println("size: "+sizeInBytes+" Bytes , "+numOfTotalFrames +" frames");
 
     }
+    private int findNearestPCRIndex(double tmpPCR){
+        for(int i=0 ; i < PCR_to_iFrames.size(); i++){
+            double currPCR = PCR_to_iFrames.get(i).getPcr();
+            if (tmpPCR > currPCR) return (i-1);
+        }
+        return -1;
+    }
+
+    public void moveFisForRandomAccess(double playPositionInseconds){
+        //ref: http://www.java2s.com/Code/Python/File/Useseektomovefilepointer.htm
+        int PCRIndex = findNearestPCRIndex(playPositionInseconds);
+        int iFrameIndex = PCR_to_iFrames.get(PCRIndex).getiFrameIndex();
+
+        //todo URGENT
+        //fis.seek(TS_PACKET_SIZE_BYTES * iFrameIndex);
+        // http://docs.oracle.com/javase/6/docs/api/java/io/RandomAccessFile.html
+    }
+
+    private void generateKeyFrameIndexTable_list() throws Exception {
+        //find a IDR from the BACKWARD
+        //and bind a PCR after IDR
+        double lastPCR = 0.0;
+
+        int numOfPackets;
+        byte[] buf = new byte[MAX_FRAME_SIZE_BYTES];
+        for( int i = 0 ; i < numOfTotalFrames ; i++ ) {
+            numOfPackets = getNextFrame(buf) / TS_PACKET_SIZE_BYTES;
+
+            double currPCR = parsePCRFromOneFrame(buf, numOfPackets);
+
+            if (currPCR > 0.0) { lastPCR = currPCR; }
+
+            if(isH264iFrame(buf, numOfPackets)){
+                PCR_to_iFrames.addLast(new PCR_to_iFrame(lastPCR, i));
+            }
+        }
+    }
+
+    private void generateIndexer_tree() {
+    }
+
+    private boolean isVideoFrame(){
+        //if E0 then true
+        return false;
+    }
+
+
 
     private void generateKeyFrameIndexTable() throws Exception {
+        // fake
         int numOfPackets;
         byte[] buf = new byte[MAX_FRAME_SIZE_BYTES];
         for( int i = 0 ; i < numOfTotalFrames ; i++ ) {
             numOfPackets = getNextFrame(buf) / TS_PACKET_SIZE_BYTES;
 
             if(isH264iFrame(buf, numOfPackets)){//http://stackoverflow.com/questions/1957427/detect-mpeg4-h264-i-frame-idr-in-rtp-stream
-                keyFrameIndexTable.add(i);
+                iFrames.add(i);
                 System.out.println("i: "+ i+", numOfPackets: " + numOfPackets);
             }
         }
     }
 
+    //fake
     public int findNearestKeyFrameNumber(int currFrameNumber) {
         return findNearestKeyFrameNumber(currFrameNumber, 0, numOfTotalFrames);
     }
-
+    //fake
     public int findNearestKeyFrameNumber(int currFrameNumber, int start, int end){
         //todo check if correct
-        if(keyFrameIndexTable.contains(currFrameNumber)) return currFrameNumber;
+        if(iFrames.contains(currFrameNumber)) return currFrameNumber;
         int i;
 
         while(true){
             if (end - start < 10)
-                return keyFrameIndexTable.get(start);
+                return iFrames.get(start);
 
             i = (start + end) / 2;
-            if( currFrameNumber < keyFrameIndexTable.get(i)) {
+            if( currFrameNumber < iFrames.get(i)) {
                 end = i;
             } else{
                 start = i;
@@ -184,9 +266,6 @@ public class VideoStreamer {
 
             printOneFrame_BytesToHex_noSpaces(buf, numPackets, i);
         }*/
-
-        /** print num */
-        System.out.println("\n\nnum of key frames total: "+ keyFrameIndexTable.size());
     }
 
     public static void printOneFrame_BytesToHex_noSpaces(byte[] buf, int numOfPackets, int currFrameNumber ){
@@ -220,8 +299,8 @@ public class VideoStreamer {
         char[] hexChars = new char[bytes.length * 2];
         for ( int j = 0; j < bytes.length; j++ ) {
             int v = bytes[j] & 0xFF;
-            hexChars[j * 2] = hexArray[v >>> 4];
-            hexChars[j * 2 + 1] = hexArray[v & 0x0F];
+            hexChars[j * 2] = HEX_ARRAY[v >>> 4];
+            hexChars[j * 2 + 1] = HEX_ARRAY[v & 0x0F];
         }
 
         return hexChars;
@@ -231,8 +310,8 @@ public class VideoStreamer {
         char[] hexChars = new char[bytes.length * 2];
         for ( int j = 0; j < bytes.length; j++ ) {
             int v = bytes[j] & 0xFF;
-            hexChars[j * 2] = hexArray[v >>> 4];
-            hexChars[j * 2 + 1] = hexArray[v & 0x0F];
+            hexChars[j * 2] = HEX_ARRAY[v >>> 4];
+            hexChars[j * 2 + 1] = HEX_ARRAY[v & 0x0F];
         }
         return new String(hexChars);
     }
@@ -339,4 +418,16 @@ public class VideoStreamer {
 
         return sizeOfNextFrame;
     }
+}
+
+class PCR_to_iFrame {
+    private double pcr;
+    private int iFrameIndex;
+
+    public PCR_to_iFrame(double pcr, int iFrameIndex){
+        this.pcr = pcr;
+        this.iFrameIndex = iFrameIndex;
+    }
+    public double getPcr() {return pcr;}
+    public int getiFrameIndex() {return iFrameIndex;}
 }
