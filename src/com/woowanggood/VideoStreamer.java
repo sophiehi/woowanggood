@@ -1,4 +1,4 @@
-package com.woowanggood;
+//package com.woowanggood;
 
 import java.io.*;
 import java.util.Arrays;
@@ -64,7 +64,7 @@ public class VideoStreamer {
                     break;
             }
 
-            //todo:: bring back fis at the begining point of file( temporal hack for now)
+            //todo:: bring back fis at the begining point of file (temporal hack for now)
             fis.close();
             fis = new BufferedInputStream(getClass().getResourceAsStream(filename));
             fis.markSupported();
@@ -73,15 +73,16 @@ public class VideoStreamer {
 
     public double parsePCRFromOneFrame(byte[] buf, int numOfPackets) {/** buf = frame */
         /** parse PCR */
-        int adaptationFieldExistFlag = ( buf[3] & 0x20 ) >> 5;
+        int adaptationFieldExistFlag = (buf[3] & 0x20) >> 5;
         if (adaptationFieldExistFlag == 1) {
             int PCRExistFlag = (buf[5] & 0x10) >> 4;
             if(PCRExistFlag == 1){
-                long pcrBase =    ((buf[6] & 0xFFL)<<25)
-                        | ((buf[7] & 0xFFL)<<17)
-                        | ((buf[8] & 0xFFL)<<9)
-                        | ((buf[9] & 0xFFL)<<1)
-                        | ((buf[10]& 0xFFL)>>7);
+                long pcrBase =
+                          ((buf[6] & 0xFFL) << 25)
+                        | ((buf[7] & 0xFFL) << 17)
+                        | ((buf[8] & 0xFFL) <<  9)
+                        | ((buf[9] & 0xFFL) <<  1)
+                        | ((buf[10]& 0xFFL) >>  7);
 
                 long pcrExt = ((buf[10] & 0x01L) << 8)
                         | (buf[11] & 0xFFL);
@@ -159,14 +160,16 @@ public class VideoStreamer {
         System.out.println("size: "+sizeInBytes+" Bytes , "+numOfTotalFrames +" frames");
 
     }
-    private int findNearestPCRIndex(double tmpPCR){
+
+    private int findNearestPCRIndex(double thePCR){//thePCR 보다 작은 PCR 중에, 가장 큰 PCR 을 찾기
         for(int i=0 ; i < PCR_to_iFrames.size(); i++){
-            double currPCR = PCR_to_iFrames.get(i).getPcr();
-            if (tmpPCR > currPCR) return (i-1);
+            double PCR = PCR_to_iFrames.get(i).getPcr();
+            if (thePCR < PCR) return (i-1);
         }
         return -1;
     }
 
+    //TODO 3
     public void moveFisForRandomAccess(double playPositionInseconds){
         //ref: http://www.java2s.com/Code/Python/File/Useseektomovefilepointer.htm
         int PCRIndex = findNearestPCRIndex(playPositionInseconds);
@@ -177,22 +180,25 @@ public class VideoStreamer {
         // http://docs.oracle.com/javase/6/docs/api/java/io/RandomAccessFile.html
     }
 
+    //TODO 2
     private void generateKeyFrameIndexTable_list() throws Exception {
-        //find a IDR from the BACKWARD
-        //and bind a PCR after IDR
-        double lastPCR = 0.0;
+        //앞에서부터 iFrame을 찾은 뒤, 바로 연달아오는 PCR과 묶어서 table에 삽입. (즉 PCR과, 그 PCR바로 직전의 iFrame 묶기.)
 
+        double lastPCR;
+        int iFrameIndex = -1;
         int numOfPackets;
+
         byte[] buf = new byte[MAX_FRAME_SIZE_BYTES];
         for( int i = 0 ; i < numOfTotalFrames ; i++ ) {
             numOfPackets = getNextFrame(buf) / TS_PACKET_SIZE_BYTES;
 
+            if(isH264iFrame(buf, numOfPackets)){ iFrameIndex = i;}
+
             double currPCR = parsePCRFromOneFrame(buf, numOfPackets);
-
-            if (currPCR > 0.0) { lastPCR = currPCR; }
-
-            if(isH264iFrame(buf, numOfPackets)){
-                PCR_to_iFrames.addLast(new PCR_to_iFrame(lastPCR, i));
+            if (currPCR > 0.0 && iFrameIndex > 0) {
+                lastPCR = currPCR;
+                PCR_to_iFrames.addLast(new PCR_to_iFrame(lastPCR, iFrameIndex));
+                iFrameIndex = -1;
             }
         }
     }
