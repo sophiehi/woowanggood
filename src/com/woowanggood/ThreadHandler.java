@@ -36,7 +36,6 @@ public class ThreadHandler {
 
                 //new thread for a client
                 new EventHandler(socket, RTPPort++, clientIPAddr).start();
-                dataInputStream.close();
             }
             catch (IOException e) {
                 e.printStackTrace();

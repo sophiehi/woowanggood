@@ -67,6 +67,7 @@ public class SocketHandler {
                 serverSocket = new Socket(host, remotePort);
                 disWithServer = new DataInputStream(serverSocket.getInputStream());
                 dosWithServer = new DataOutputStream(serverSocket.getOutputStream());
+                dosWithServer.writeUTF(clientSocket.getInetAddress().getHostAddress());
             }
             catch (Exception e) {
                 System.out.println("connect server socket\n" + e.getMessage());
@@ -78,7 +79,6 @@ public class SocketHandler {
                         int bytes;
                         while ((bytes = disWithClient.read(request)) != -1) {
                             System.out.println("Client Request bytes :\n");
-                            dosWithServer.writeUTF(clientSocket.getInetAddress().getHostAddress());
                             dosWithServer.write(request, 0, bytes);
                             dosWithServer.flush();
                         }

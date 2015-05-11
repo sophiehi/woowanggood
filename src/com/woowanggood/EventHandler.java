@@ -66,9 +66,6 @@ public class EventHandler extends Thread {
         this.IP_4_client = clientIPAddr;
         this.RTPSocketPort = RTPPort;
         this.RTPClientPort = String.valueOf(clientSocket.getLocalPort()) + "-" + String.valueOf(clientSocket.getLocalPort()+1);
-        //this.RTPClientPort = "3000-3001";
-        System.out.println(RTPSocketPort);
-        //System.exit(1);
     }
 
     public void run() {
@@ -212,9 +209,9 @@ public class EventHandler extends Thread {
         };
         t.start();
 
-        int cnt =0;
+        int cnt = 0;
         int numberOfFrame = 0;
-        while(true) {
+        while (true) {
             if (pauseSendingRTPPacket) {
                 try {
                     Thread.sleep(100);
@@ -380,7 +377,6 @@ public class EventHandler extends Thread {
                     }
                     break;
             }
-
         }
         catch (Exception e) {
             System.out.println("Exception caught: " + e);
@@ -410,7 +406,7 @@ public class EventHandler extends Thread {
                     RTSPBufferedWriter.write("Content-Type: " + RTSPContentType + CRLF);
 
                     String content = "v=0" + CRLF +
-                            "o=- 1430456491484288 1 IN IP4 "+ IP_4 + CRLF +
+                            "o=- 1430456491484288 1 IN IP4 " + IP_4 + CRLF +
                             "s=MPEG Transport Stream, streamed by the LIVE555 Media Server" + CRLF +
                             "i=movie.ts" + CRLF +
                             "t=0 0" + CRLF +
