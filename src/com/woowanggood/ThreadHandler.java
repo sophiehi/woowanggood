@@ -14,7 +14,14 @@ public class ThreadHandler {
         Socket socket = null;
 
         //get RTSP socket port from the command line
-        int RTSPPort = 3000, RTPPort = 4000;
+
+        int RTSPPort = 3000;
+        int RTPPort = 4000;
+
+        // get Client IP
+        String client_IP = "192.168.0.103";
+
+        System.out.println("Server started! port : " + String.valueOf(RTSPPort));
 
         try {
             RTSPPort = 3000;
@@ -54,8 +61,7 @@ public class ThreadHandler {
                 System.out.println("clientIPAddr : " + clientIPAddr);
 
                 //new thread for a client
-                new EventHandler(socket).start();
-                break;
+                new EventHandler(socket, RTPPort++, client_IP).start();
             }
             catch (IOException e) {
                 System.out.println("I/O error: " + e);

@@ -9,7 +9,7 @@ public class EventHandler extends Thread {
     /* RTSP variables: */
     int state; //RTSP Server state == INIT or READY or PLAYING
     int RTSPSeqNumber = 0; //Sequence number of RTSP messages within the session
-    String IP_4 = "127.0.0.1";
+    String IP_4 = "192.168.0.102";
     String IP_4_client;
     String RTSPSessionID = "09F6248"; //ID of the RTSP session
     String RTSPRange, RTSPContentTrack;
@@ -56,12 +56,21 @@ public class EventHandler extends Thread {
     private boolean pauseSendingRTPPacket = false;
     private Thread sendRTPThread;
 
-    public EventHandler(Socket clientSocket, int RTPPort, String clientIPAddr) {
-        this.RTSPSocket = clientSocket;
+    public EventHandler(Socket clientSocket, int RTPPort, String client_ip) {
+        try{
+            this.RTSPSocket = clientSocket;
 
-        this.IP_4_client = clientIPAddr;
-        this.RTPSocketPort = RTPPort;
-        this.RTPClientPort = String.valueOf(clientSocket.getLocalPort()) + "-" + String.valueOf(clientSocket.getLocalPort() + 1);
+            this.IP_4_client = clientSocket.getInetAddress().getHostAddress();
+            this.IP_4_client = client_ip;
+
+            this.RTPSocketPort = RTPPort;
+            this.RTPClientPort = String.valueOf(clientSocket.getLocalPort()) + "-" + String.valueOf(clientSocket.getLocalPort()+1);
+
+            //Get Client IP address
+            this.clientIPAddr = InetAddress.getByName(IP_4_client);
+        }catch (Exception e){
+            e.printStackTrace();
+        }
     }
 
     public void run() {
@@ -71,14 +80,6 @@ public class EventHandler extends Thread {
         //Initiate RTSP state
         state = INIT;
         System.out.println("New Thread started!");
-
-        try {
-            //Get Client IP address
-            clientIPAddr = InetAddress.getByName(IP_4_client);
-        }
-        catch (Exception e) {
-            e.printStackTrace();
-        }
 
         //Set input and output stream filters:
         try {
@@ -114,7 +115,7 @@ public class EventHandler extends Thread {
 
                 try {
                     //init the VideoStream object:
-                    video = new VideoStreamer(videoFileName);
+                    video = new VideoStreamer(videoFileName, true);
 
                     //init RTP socket
                     //RTPSocket = new DatagramSocket(RTPSocketPort , InetAddress.getByName(IP_4));
@@ -152,8 +153,25 @@ public class EventHandler extends Thread {
 
                 sendRTSPResponse(requestType);
                 // Start sendRTPThread
-                // sendRTPPacket();
-                if (sendRTPThread == null) {
+                //sendRTPPacket();
+                pauseSendingRTPPacket = false;
+
+                StringTokenizer tokens = new StringTokenizer(RTSPRange, "=");
+                tokens.nextToken();
+                StringTokenizer range = new StringTokenizer(tokens.nextToken(), "-");
+
+                double min = Double.parseDouble(range.nextToken());
+                try{
+                    if(min != 0.0){
+
+                        video.seek(min);
+                    }
+
+                }catch (Exception e){
+                    e.printStackTrace();
+                }
+
+                if(sendRTPThread == null){
                     sendRTPThread = new Thread() {
                         public void run(){
                             try {
@@ -165,7 +183,6 @@ public class EventHandler extends Thread {
                     };
                     sendRTPThread.start();
                 }
-                pauseSendingRTPPacket = false;
             }
             else if (requestType.equals(PAUSE) && state == PLAYING) {
                 //update state
@@ -232,7 +249,7 @@ public class EventHandler extends Thread {
 
             try {
                 //get next frame to send from the video, as well as its size
-                System.out.println("imageNumber : " + String.valueOf(imageNumber));
+                System.out.println(String.valueOf(imageNumber) + " ");
 
                 int frameLength = video.getNextSevenPacket(buf);
                 int i = 0;
@@ -245,12 +262,8 @@ public class EventHandler extends Thread {
                     }
                     for(int k = 0; k < 7; k++) {
                         byte [] tsPacket = Arrays.copyOfRange(buf, (i+k)*188, (i+k+1)*188);
-                        System.out.println("1");
                         boolean isStartingPacket = video.isStartingPacket(tsPacket);
-                        System.out.println("2");
-
-
-                        if (isStartingPacket) {
+                        if(isStartingPacket){
                             numberOfFrame++;
                             cnt++;
                         }
@@ -284,14 +297,14 @@ public class EventHandler extends Thread {
 
                     i = i + j;
                     frameLength -= 188 * j;
-                    if (cnt >= 4) {
-                        cnt = 0;
-                        thread.join();
-                        thread = new Thread() {
+                    if(cnt >= 3){
+                        cnt = cnt - 3;
+                        t.join();
+                        t = new Thread() {
                             public void run() {
                                 try {
-                                    Thread.sleep(49);
-                                } catch (InterruptedException ex) {
+                                    Thread.sleep(235);
+                                } catch(InterruptedException ex) {
                                     Thread.currentThread().interrupt();
                                     ex.printStackTrace();
                                 }
@@ -300,7 +313,6 @@ public class EventHandler extends Thread {
                         thread.start();
                     }
                 }
-                System.out.println("Send frame #" + imageNumber);
             }
             catch (InterruptedException e) {
                 System.out.println("Interrupted Exception caught : " + e);

@@ -42,6 +42,8 @@ public class VideoStreamer {
         fis = new RandomAccessFile(filename, "r");//여기서는 그냥 bufferedInputStream이 나은가?
         this.numOfTotalFrames = (int) fis.length() /TS_PACKET_SIZE_BYTES;
 
+        this.numOfTotalFrames = (int) fis.length() /TS_PACKET_SIZE_BYTES;
+
         if(needKeyTable){
             switch(keyTableType){
                 case 1:
@@ -165,7 +167,8 @@ public class VideoStreamer {
 
     public void seek(double playPositionInseconds) throws IOException {
         moveFisForRandomAccess(playPositionInseconds);
-        ////System.out.println("seek: " + playPositionInseconds + ": " + fis.getFilePointer() / TS_PACKET_SIZE_BYTES);
+
+        System.out.println("seek: "+ playPositionInseconds + ": "+ fis.getFilePointer()/TS_PACKET_SIZE_BYTES);
     }
 
     public void moveFisForRandomAccess(double playPosInSec) throws IOException {
@@ -361,11 +364,6 @@ public class VideoStreamer {
             }
         }
         System.out.println("22");
-
-
-
-        return false;
-    }
 
     private int howManyPacketsForNextFrame() throws IOException {
         long currFis = fis.getFilePointer();//mark fis curr position.

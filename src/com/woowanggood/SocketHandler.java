@@ -8,7 +8,7 @@ import java.net.Socket;
  * Created by KangGyu on 2015-05-01.
  */
 public class SocketHandler {
-    public static final String host = "192.168.0.101";
+    public static final String host = "192.168.0.102";
     public static final int localPort = 2000;
     public static final int remotePortA = 3000;
     public static final int remotePortB = 3001;
