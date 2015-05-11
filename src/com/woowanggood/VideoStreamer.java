@@ -25,8 +25,9 @@ public class VideoStreamer {
     public VideoStreamer() throws Exception {
         this("movie_new.ts");
     }
+
     public VideoStreamer(String filename) throws Exception {
-        this(filename, false);
+        this(filename, true);
     }
 
     public VideoStreamer(String filename, boolean needKeyTable) throws Exception {
@@ -36,9 +37,8 @@ public class VideoStreamer {
     public VideoStreamer(String filename, boolean needKeyTable, int keyTableType ) throws Exception {
         //int keyTableType = { 1: iframeIndex list, 2: (pcr, iframeIndex) list, 3:tree, 4: opt augmented red-black tree
         nextFrameIndex = -1;
-        this.numOfTotalFrames = (int) fis.length() /TS_PACKET_SIZE_BYTES;
-
         fis = new RandomAccessFile(filename, "r");//여기서는 그냥 bufferedInputStream이 나은가?
+        this.numOfTotalFrames = (int) fis.length() /TS_PACKET_SIZE_BYTES;
 
         if(needKeyTable){
             switch(keyTableType){
@@ -322,15 +322,23 @@ public class VideoStreamer {
     }
 
     //static ?
-    public boolean isStartingPacket(byte [] tsPacket) throws IOException{
+    public boolean isStartingPacket(byte [] buf) throws IOException{
         int payloadUnitStartIndicator;//TS Header 10th Bit.
-        int streamId; //PES Header 4th Byte (index 0 = 1st)
-        payloadUnitStartIndicator = (tsPacket[1] >>> 6) & 0x01;
+        int streamId = -1; //PES Header 4th Byte (index 0 = 1st)
+        payloadUnitStartIndicator = (buf[1] >>> 6) & 0x01;
+        //todo original
         //int TS_payload_offset; // original
         //streamId = tsPacket[TS_payload_offset + 3] & 0xFF; //original
 
-        // todo temp fake hack
-        streamId = tsPacket[15] & 0xFF;
+        int offset    = 4;   /** start offset */ //TS header = 4 bytes
+        int endOffset = 4;   /** end offset */   //checking 4 bytes each.
+
+        for (int i = 0; offset+i+endOffset < TS_PACKET_SIZE_BYTES; i++) {
+            /* if Nal Unit Start Prefix 0x 00 00 01 (0x 00 00 00 01 excluded for now ) */
+            if (buf[offset + i] == 0 && buf[offset + i + 1] == 0 && buf[offset + i + 2] == 1) {
+                streamId = buf[offset + i + 3] & 0xFF;
+            }
+        }
 
         if(payloadUnitStartIndicator == 1 && isVideoStream(streamId)){
             return true;
@@ -338,7 +346,6 @@ public class VideoStreamer {
             return false;
         }
     }
-
 
     private int howManyPacketsForNextFrame() throws IOException {
         long currFis = fis.getFilePointer();//mark fis curr position.
