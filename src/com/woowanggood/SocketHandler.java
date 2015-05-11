@@ -8,7 +8,7 @@ import java.net.Socket;
  * Created by KangGyu on 2015-05-01.
  */
 public class SocketHandler {
-    public static final String host = "localhost";
+    public static final String host = "192.168.0.111";
     public static final int localPort = 2000;
     public static final int remotePort = 3000;
 
@@ -78,6 +78,7 @@ public class SocketHandler {
                         int bytes;
                         while ((bytes = disWithClient.read(request)) != -1) {
                             System.out.println("Client Request bytes :\n");
+                            dosWithServer.writeUTF(clientSocket.getInetAddress().getHostAddress());
                             dosWithServer.write(request, 0, bytes);
                             dosWithServer.flush();
                         }

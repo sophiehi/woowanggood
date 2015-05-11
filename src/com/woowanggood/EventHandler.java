@@ -30,7 +30,6 @@ public class EventHandler extends Thread {
     private final String PLAY = "PLAY";
     private final String PAUSE = "PAUSE";
     private final String TEARDOWN = "TEARDOWN";
-    private final String GET_PARAMETER = "GET_PARAMETER";
     private final String OPTIONS = "OPTIONS";
     private final String DESCRIBE = "DESCRIBE";
 
@@ -57,8 +56,19 @@ public class EventHandler extends Thread {
     private BufferedWriter RTSPBufferedWriter;
     final String CRLF = "\r\n";
 
-    public EventHandler(Socket clientSocket) {
+    // sendRTPThread
+    private boolean pauseSendingRTPPacket = false;
+    private Thread sendRTPThread;
+
+    public EventHandler(Socket clientSocket, int RTPPort, String clientIPAddr) {
         this.RTSPSocket = clientSocket;
+
+        this.IP_4_client = clientIPAddr;
+        this.RTPSocketPort = RTPPort;
+        this.RTPClientPort = String.valueOf(clientSocket.getLocalPort()) + "-" + String.valueOf(clientSocket.getLocalPort()+1);
+        //this.RTPClientPort = "3000-3001";
+        System.out.println(RTPSocketPort);
+        //System.exit(1);
     }
 
     public void run() {
@@ -66,8 +76,13 @@ public class EventHandler extends Thread {
         state = INIT;
         System.out.println("New Thread started!");
 
-        //Get Client IP address
-        clientIPAddr = RTSPSocket.getInetAddress();
+        try {
+            //Get Client IP address
+            clientIPAddr = InetAddress.getByName(IP_4_client);
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
 
         //Set input and output stream filters:
         try {
@@ -81,14 +96,15 @@ public class EventHandler extends Thread {
         String requestType;
         boolean isDone = false;
 
-        while (!isDone){
+        while (!isDone) {
             // Parse RTSP Request
             requestType = parseRTSPRequest();
             System.out.println("Current Request Type : " + requestType);
 
             if (requestType.equals(OPTIONS)) {
                 sendRTSPResponse(requestType);
-            }else if(requestType.equals(DESCRIBE)){
+            }
+            else if (requestType.equals(DESCRIBE)) {
                 sendRTSPResponse(requestType);
             }
             else if (requestType.equals(SETUP)) {
@@ -110,9 +126,11 @@ public class EventHandler extends Thread {
 
                     //RTPSocket = new DatagramSocket(new InetSocketAddress(InetAddress.getByName(IP_4),Integer.parseInt(tokens.nextToken())));
                     //RTPSocket = new DatagramSocket(Integer.parseInt(tokens.nextToken()));
-                    // RTPSocket.bind(new InetSocketAddress(InetAddress.getByName(IP_4), Integer.parseInt(tokens.nextToken())));
+
+                    //RTPSocket.bind(new InetSocketAddress(InetAddress.getByName(IP_4), Integer.parseInt(tokens.nextToken())));
+
                 }
-                catch(Exception e) {
+                catch (Exception e) {
                     e.printStackTrace();
                 }
             }
@@ -123,7 +141,7 @@ public class EventHandler extends Thread {
             // Wait 1 sec to repeat
             try {
                 Thread.sleep(0);
-            } catch(InterruptedException ex) {
+            } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
             }
 
@@ -138,7 +156,22 @@ public class EventHandler extends Thread {
                 System.out.println("RTSP server state : PLAYING");
 
                 sendRTSPResponse(requestType);
-                sendRTPPacket();
+
+                // Start sendRTPThread
+                //sendRTPPacket();
+                if (sendRTPThread == null) {
+                    sendRTPThread = new Thread() {
+                        public void run(){
+                            try {
+                                sendRTPPacket();
+                            } catch (Exception e) {
+                                Thread.currentThread().interrupt();
+                            }
+                        }
+                    };
+                    sendRTPThread.start();
+                }
+                pauseSendingRTPPacket = false;
             }
             else if (requestType.equals(PAUSE) && state == PLAYING) {
                 //update state
@@ -148,13 +181,14 @@ public class EventHandler extends Thread {
             else if (requestType.equals(TEARDOWN)) {
                 try {
                     //close sockets
-                    RTSPSocket.close();
-                    RTPSocket.close();
-
+                    if (RTSPSocket != null)
+                        RTSPSocket.close();
+                    if (RTPSocket != null)
+                        RTPSocket.close();
                     //System.exit(0);
                     break;
                 }
-                catch(Exception e) {
+                catch (Exception e) {
                     e.printStackTrace();
                 }
             }
@@ -177,9 +211,18 @@ public class EventHandler extends Thread {
             }
         };
         t.start();
-        int cnt = 0;
 
-        while(true){
+        int cnt =0;
+        int numberOfFrame = 0;
+        while(true) {
+            if (pauseSendingRTPPacket) {
+                try {
+                    Thread.sleep(100);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                continue;
+            }
 
             //update current image number
             imageNumber++;
@@ -188,19 +231,20 @@ public class EventHandler extends Thread {
                 //get next frame to send from the video, as well as its size
                 System.out.println(String.valueOf(imageNumber) + " ");
 
-
                 int frameLength = video.getNextSevenPacket(buf);
                 int i = 0;
-                while(frameLength > 0){
+                while (frameLength > 0) {
                     int j = 7;
-                    if(frameLength < 188*7){
-                        j = frameLength/188;
+                    if (frameLength < 188 * 7) {
+                        j = frameLength / 188;
                     }
-                    for(int k=0; k<7; k++){
+                    for(int k = 0; k < 7; k++) {
                         byte [] tsPacket = Arrays.copyOfRange(buf, (i+k)*188, (i+k+1)*188);
-                        boolean isStartingPcaket = VideoStreamer.isStartingPacket(tsPacket);
-                        if(isStartingPcaket){
-                            cnt ++;
+
+                        boolean isStartingPacket = VideoStreamer.isStartingPacket(tsPacket);
+                        if (isStartingPacket) {
+                            numberOfFrame++;
+                            cnt++;
                         }
                     }
 
@@ -213,14 +257,13 @@ public class EventHandler extends Thread {
                     int packetLength = RTPPacket.getPacketSize();
 
                     //retrieve the packet bit stream and store it in an array of bytes
-                    byte[] packetBits = new byte[packetLength];
-                    packetBits = RTPPacket.getPacket();
+                    byte[] packetBits = RTPPacket.getPacket();
 
                     //send the packet as a DatagramPacket over the UDP socket
                     StringTokenizer tokens = new StringTokenizer(RTPClientPort, "-");
                     UDPPacket = new DatagramPacket(packetBits, packetLength, clientIPAddr, Integer.parseInt(tokens.nextToken()));
 
-                    if(RTPSocket == null || UDPPacket == null){
+                    if (RTPSocket == null || UDPPacket == null) {
                         System.out.println("?!");
                     }
                     RTPSocket.send(UDPPacket);
@@ -228,16 +271,16 @@ public class EventHandler extends Thread {
                     //print the header bit stream
                     //RTPPacket.printHeader();
 
-                    i = i+j;
+                    i = i + j;
                     frameLength -= 188 * j;
-                    if(cnt >= 4){
+                    if (cnt >= 4) {
                         cnt = 0;
                         t.join();
                         t = new Thread() {
                             public void run() {
                                 try {
                                     Thread.sleep(49);
-                                } catch(InterruptedException ex) {
+                                } catch (InterruptedException ex) {
                                     Thread.currentThread().interrupt();
                                 }
                             }
@@ -246,6 +289,12 @@ public class EventHandler extends Thread {
                     }
                 }
                 System.out.println("Send frame #" + imageNumber);
+            }
+            catch (InterruptedException e) {
+                System.out.println("Interrupted Exception caught: " + e);
+                t.interrupt();
+                Thread.currentThread().interrupt();
+                return;
             }
             catch (Exception e) {
                 System.out.println("Exception caught: " + e);
@@ -266,13 +315,11 @@ public class EventHandler extends Thread {
             //parse request line and extract the RTSP request type
             String requestLine = RTSPBufferedReader.readLine(); // ex) OPTIONS rtsp://192.168.0.6:8554/H264_720p.ts RTSP/1.0
             if (requestLine == null || requestLine.equals("")) {
-
                 return RTSPRequestType;
             }
 
             StringTokenizer tokens = new StringTokenizer(requestLine);
             RTSPRequestType = tokens.nextToken(); // It is 'OPTIONS' if requestLine is equal to above sentence
-
 
             if (RTSPRequestType.equals(SETUP))
                 RTSPContentTrack = tokens.nextToken(); // rtsp://192.168.0.6:8554/H264_720p.ts/track1
@@ -280,11 +327,10 @@ public class EventHandler extends Thread {
                 RTSPContentBase = tokens.nextToken(); // rtsp://192.168.0.6:8554/H264_720p.ts
 
             if (RTSPRequestType.equals(SETUP)) {
-//                //extract video file name from request sentences
-//                videoFileName = tokens.nextToken();
+                //extract video file name from request sentences
+                //videoFileName = tokens.nextToken();
                 System.out.println("videoFileName : " + videoFileName);
             }
-
 
             //parse the SeqNumLine and extract CSeq field
             String seqNumberLine = RTSPBufferedReader.readLine(); // CSeq: 2
@@ -324,10 +370,14 @@ public class EventHandler extends Thread {
                     RTSPSessionID = tokens.nextToken();
 
                     String rangeLine = RTSPBufferedReader.readLine();
-                    tokens = new StringTokenizer(rangeLine);
-                    tokens.nextToken();
-                    RTSPRange = tokens.nextToken();
-
+                    String temp = RTSPRange;
+                    try {
+                        tokens = new StringTokenizer(rangeLine);
+                        tokens.nextToken();
+                        RTSPRange = tokens.nextToken() + VIDEO_LENGTH;
+                    } catch (NoSuchElementException e) {
+                        RTSPRange = temp;
+                    }
                     break;
             }
 
@@ -359,37 +409,35 @@ public class EventHandler extends Thread {
                     RTSPBufferedWriter.write("Content-Base: " + RTSPContentBase + CRLF);
                     RTSPBufferedWriter.write("Content-Type: " + RTSPContentType + CRLF);
 
-                    String content = "v=0"+CRLF+
-                            "o=- 1430456491484288 1 IN IP4 "+ IP_4+CRLF+
-                            "s=MPEG Transport Stream, streamed by the LIVE555 Media Server"+CRLF+
-                            "i=movie.ts"+CRLF+
-                            "t=0 0"+CRLF+
-                            "a=tool:LIVE555 Streaming Media v2014.10.20"+CRLF+
-                            "a=type:broadcast"+CRLF+
-                            "a=control:*"+CRLF +
-                            "a=range:npt=0-507.238"+CRLF+
-                            "a=x-qt-text-nam:MPEG Transport Stream, streamed by the LIVE555 Media Server"+CRLF+
-                            "a=x-qt-text-inf:movie.ts"+CRLF+
-                            "m=video " + (new StringTokenizer(RTPClientPort, "-").nextToken()) + " RTP/AVP 33"+CRLF+
+                    String content = "v=0" + CRLF +
+                            "o=- 1430456491484288 1 IN IP4 "+ IP_4 + CRLF +
+                            "s=MPEG Transport Stream, streamed by the LIVE555 Media Server" + CRLF +
+                            "i=movie.ts" + CRLF +
+                            "t=0 0" + CRLF +
+                            "a=tool:LIVE555 Streaming Media v2014.10.20" + CRLF +
+                            "a=type:broadcast" + CRLF+
+                            "a=control:*" + CRLF +
+                            "a=range:npt=0-" + VIDEO_LENGTH + CRLF +
+                            "a=x-qt-text-nam:MPEG Transport Stream, streamed by the LIVE555 Media Server" + CRLF +
+                            "a=x-qt-text-inf:movie.ts" + CRLF +
+                            "m=video " + (new StringTokenizer(RTPClientPort, "-").nextToken()) + " RTP/AVP 33" + CRLF +
                             //"m=video 5000 RTP/AVP 33"+CRLF+
-                            "c=IN IP4 0.0.0.0"+CRLF+
-                            "b=AS:5111"+CRLF+
+                            "c=IN IP4 0.0.0.0" + CRLF +
+                            "b=AS:5111" + CRLF +
                             "a=control:track1" + CRLF;
 
                     RTSPBufferedWriter.write("Content-Length: " + content.length() + CRLF + CRLF);
                     RTSPBufferedWriter.write(content);
-
                     RTSPBufferedWriter.flush();
-
                     break;
-
                 case SETUP :
                     RTSPBufferedWriter.write("RTSP/1.0 200 OK" + CRLF);
                     RTSPBufferedWriter.write("CSeq: " + RTSPSeqNumber + CRLF);
                     RTSPBufferedWriter.write("Date: " + getCurrentTime() + CRLF);
                     RTSPBufferedWriter.write("Transport: " + RTPProfile + ";" + RTPCastType + ";" +
-                            "destination="+IP_4_client +";source="+ IP_4 + ";" +
-                            "client_port=" + RTPClientPort + ";server_port=3000-3001" + CRLF);
+                            "destination=" + IP_4_client + ";source=" + IP_4 + ";" +
+                            "client_port=" + RTPClientPort + CRLF);
+                            //"client_port=" + RTPClientPort + ";server_port=8888-8889" + CRLF);
                     RTSPBufferedWriter.write("Session: " + RTSPSessionID + ";timeout=" + 10 + CRLF);
                     RTSPBufferedWriter.write(CRLF);
                     RTSPBufferedWriter.flush();
@@ -415,7 +463,7 @@ public class EventHandler extends Thread {
         }
         catch (Exception e) {
             System.out.println("Exception caught: " + e);
-            System.exit(0);
+            e.printStackTrace();
         }
     }
 
