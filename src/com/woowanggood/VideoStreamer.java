@@ -9,6 +9,7 @@ import java.util.LinkedList;
  */
 
 public class VideoStreamer {
+    //TODO RTSP.java switch문 에러 고치기. jdk?
     public int cnt = 0;
 
     private static final int TS_PACKET_SIZE_BYTES = 188;
