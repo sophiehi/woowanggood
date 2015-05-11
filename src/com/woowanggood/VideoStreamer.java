@@ -111,7 +111,7 @@ public class VideoStreamer {
                 long pcrExt = ((buf[10] & 0x01L) << 8)
                               | (buf[11] & 0xFFL);
 
-                double PCR = ((double)pcrBase / 90000.0f) + ((double)pcrExt/27000000.0f);
+                PCR = ((double)pcrBase / 90000.0f) + ((double)pcrExt/27000000.0f);
                 System.out.println("PCR :" + PCR + " ");
             }
         }
