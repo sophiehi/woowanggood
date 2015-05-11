@@ -19,8 +19,8 @@ public class VideoStreamer {
     private int numOfTotalFrames;
 
     //iframe = keyframe = IDR (in H.264) = xx (in H.265)
-    public static LinkedList<Integer>       iFrames        = new LinkedList<Integer>();
-    public static LinkedList<PCR_to_iFrame> PCR_to_iFrames = new LinkedList<PCR_to_iFrame>();
+    private static LinkedList<Integer>       iFrames        = new LinkedList<Integer>();
+    private static LinkedList<PCR_to_iFrame> PCR_to_iFrames = new LinkedList<PCR_to_iFrame>();
 
     public VideoStreamer() throws Exception {
         this("movie_new.ts");
@@ -36,9 +36,9 @@ public class VideoStreamer {
     public VideoStreamer(String filename, boolean needKeyTable, int keyTableType ) throws Exception {
         //int keyTableType = { 1: iframeIndex list, 2: (pcr, iframeIndex) list, 3:tree, 4: opt augmented red-black tree
         nextFrameIndex = -1;
+        this.numOfTotalFrames = (int) fis.length() /TS_PACKET_SIZE_BYTES;
 
         fis = new RandomAccessFile(filename, "r");//여기서는 그냥 bufferedInputStream이 나은가?
-        setFileSize(filename);
 
         if(needKeyTable){
             switch(keyTableType){
@@ -63,7 +63,7 @@ public class VideoStreamer {
         }
     }
 
-    public double parsePCRFromOneFrame(byte[] buf, int numOfPackets) {/** buf = frame */
+    private double parsePCRFromOneFrame(byte[] buf, int numOfPackets) {/** buf = frame */
         double PCR = -1.0;
 
         /** parse PCR */
@@ -89,7 +89,7 @@ public class VideoStreamer {
         return PCR;
     }
 
-    public boolean isH264iFrame(byte[] buf, int numOfPackets) {
+    private boolean isH264iFrame(byte[] buf, int numOfPackets) {
         int offset    = 4;   /** start offset */ //TS header = 4 bytes
         int endOffset = 4;   /** end offset */   //checking 4 bytes each.
         byte[] bufTemp;
@@ -151,15 +151,6 @@ public class VideoStreamer {
         return false;
     }
 
-    private void setFileSize(String filename) throws IOException {
-        //int sizeInBytes = (int) new File(filename).length();
-        //this.numOfTotalFrames = sizeInBytes / TS_PACKET_SIZE_BYTES ;
-        //System.out.println("size(1): "+sizeInBytes+" Bytes , "+numOfTotalFrames +" frames");
-
-        this.numOfTotalFrames = (int) fis.length() /TS_PACKET_SIZE_BYTES;
-        //System.out.println("size: "+fis.length()+" Bytes , "+numOfTotalFrames +" frames");
-    }
-
     private int findBiggestPreviousPCRIndex(double thePCR){
         // find BiggestPreviousPCR from thePCR
         // 즉, thePCR 보다 작은 PCR 중에 가장 큰 PCR 을 찾기
@@ -207,15 +198,7 @@ public class VideoStreamer {
         }
     }
 
-    private void generateIndexer_tree() {
-    }
-
-    // TODO : PMT 이런거 알아야하나 ??
-    // TODO : 어디서 쓰는거지?
-    private boolean isVideoFrame(byte [] buf){
-        //if E0 then true
-        return false;
-    }
+    private void generateIndexer_tree() {}
 
     //todo
     private boolean isH264 (){
@@ -236,13 +219,13 @@ public class VideoStreamer {
         }
     }
 
-    public static void main(String[] args) throws Exception {
+    //public static void main(String[] args) throws Exception {
         /** with KeyFrameIndexTable */
-        VideoStreamer vs = new VideoStreamer("movie.ts", true);
+        //VideoStreamer vs = new VideoStreamer("movie.ts", true);
 
         /** test Random Access */
-        vs.seek(9.11);
-        vs.seek(107.0);
+        //vs.seek(9.11);
+        //vs.seek(107.0);
 
         /** without KeyFrameIndexTable */
         /*
@@ -261,9 +244,9 @@ public class VideoStreamer {
             printOneFrame_BytesToHex_noSpaces(buf, numPackets, i);
         }*/
 
-    }
+    //}
 
-    public static void printOneFrame_BytesToHex_noSpaces(byte[] buf, int numOfPackets, int currFrameNumber ){
+    private static void printOneFrame_BytesToHex_noSpaces(byte[] buf, int numOfPackets, int currFrameNumber ){
         for(int j=0; j < numOfPackets ; j++){
             byte [] bufCopy = Arrays.copyOfRange(buf, j*188, (j+1)*188);
 
@@ -271,7 +254,7 @@ public class VideoStreamer {
         }
     }
 
-    public static void printOneFrame_BytesToHex(byte[] buf, int numOfPackets, int currFrameNumber ){
+    private static void printOneFrame_BytesToHex(byte[] buf, int numOfPackets, int currFrameNumber ){
         for(int j=0; j < numOfPackets ; j++){
             byte [] bufCopy = Arrays.copyOfRange(buf, j*188, (j+1)*188);
 
@@ -290,7 +273,7 @@ public class VideoStreamer {
         }
     }
 
-    public static char[] bytesToHexArr(byte[] bytes) {
+    private static char[] bytesToHexArr(byte[] bytes) {
         char[] hexChars = new char[bytes.length * 2];
         for ( int j = 0; j < bytes.length; j++ ) {
             int v = bytes[j] & 0xFF;
@@ -301,7 +284,7 @@ public class VideoStreamer {
         return hexChars;
     }
 
-    public static String bytesToHexString(byte[] bytes) {
+    private static String bytesToHexString(byte[] bytes) {
         char[] hexChars = new char[bytes.length * 2];
         for ( int j = 0; j < bytes.length; j++ ) {
             int v = bytes[j] & 0xFF;
@@ -329,22 +312,25 @@ public class VideoStreamer {
         }
     }
 
-    private static boolean isVideoStream(int streamId) {
+    private boolean isVideoStream(int streamId) {
         //good-ref: http://en.wikipedia.org/wiki/Packetized_elementary_stream
 
-        if (224<= streamId && streamId <= 239){
+        if (224<= streamId && streamId <= 239){//E0 ~ EF
             return true;
         }
         else return false;
     }
 
     //static ?
-    //최사장의 isStartingPacket() count한다. 30개씩.
-    public static boolean isStartingPacket(byte [] tsPacket) throws IOException{
+    public boolean isStartingPacket(byte [] tsPacket) throws IOException{
         int payloadUnitStartIndicator;//TS Header 10th Bit.
         int streamId; //PES Header 4th Byte (index 0 = 1st)
         payloadUnitStartIndicator = (tsPacket[1] >>> 6) & 0x01;
-        streamId = tsPacket[7] & 0xFF;
+        //int TS_payload_offset; // original
+        //streamId = tsPacket[TS_payload_offset + 3] & 0xFF; //original
+
+        // todo temp fake hack
+        streamId = tsPacket[15] & 0xFF;
 
         if(payloadUnitStartIndicator == 1 && isVideoStream(streamId)){
             return true;
@@ -360,7 +346,7 @@ public class VideoStreamer {
 
         /** 1. Count first packet(starting packet). */
         numOfPackets++;
-        isStartingPacket();
+        isStartingPacket();//todo 이안에서 fis안움직이게..변경하기.
 
         /** 2. Count after second packet(following packets), if exists. */
         while(true) {
