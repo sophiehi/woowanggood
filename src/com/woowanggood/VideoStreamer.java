@@ -1,4 +1,4 @@
-package com.woowanggood;
+//package com.woowanggood;
 
 import java.io.*;
 import java.util.Arrays;
@@ -44,16 +44,16 @@ public class VideoStreamer {
             switch(keyTableType){
                 case 1:
                     generateKeyFrameIndexTable();
-                    //System.out.println("\n\nnum of key frames total: " + iFrames.size());
+                    System.out.println("\n\nnum of key frames total: " + iFrames.size());
                     break;
 
                 case 2:
                     generateKeyFrameIndexTable_list();
-                    //System.out.println("\nnumOfKeyFrames: " + PCR_to_iFrames.size());
-                    //for (int i = 0; i < PCR_to_iFrames.size(); i++) {
-                        //System.out.println("PCR("+i+"): " + PCR_to_iFrames.get(i).getPcr() + ", iframeIndex: " + PCR_to_iFrames.get(i).getiFrameIndex());
-                    //}
-                    //System.out.println("\n\nnum of key frames total: " + PCR_to_iFrames.size());
+                    System.out.println("\nnumOfKeyFrames: " + PCR_to_iFrames.size());
+                    for (int i = 0; i < PCR_to_iFrames.size(); i++) {
+                        System.out.println("PCR("+i+"): " + PCR_to_iFrames.get(i).getPcr() + ", iframeIndex: " + PCR_to_iFrames.get(i).getiFrameIndex());
+                    }
+                    System.out.println("\n\nnum of key frames total: " + PCR_to_iFrames.size());
                     break;
                 default:
                     break;
@@ -96,8 +96,7 @@ public class VideoStreamer {
         double PCR = -1.0;
 
         /** parse PCR */
-        PCR = parsePCRFromOneFrame(buf, numOfPackets);
-        /*
+        //PCR = parsePCRFromOneFrame(buf, numOfPackets);
         //same as above
         int adaptationFieldExistFlag = ( buf[3] & 0x20 ) >> 5;
         if (adaptationFieldExistFlag == 1) {
@@ -115,7 +114,7 @@ public class VideoStreamer {
                 double PCR = ((double)pcrBase / 90000.0f) + ((double)pcrExt/27000000.0f);
                 System.out.println("PCR :" + PCR + " ");
             }
-        }*/
+        }
 
         for (int i = 0; offset+i+endOffset < (TS_PACKET_SIZE_BYTES * numOfPackets); i++) {
             //todo if state == 2
@@ -164,13 +163,13 @@ public class VideoStreamer {
 
     public void seek(double playPositionInseconds) throws IOException {
         moveFisForRandomAccess(playPositionInseconds);
-        //System.out.println("seek: "+ playPositionInseconds + ": "+ fis.getFilePointer()/TS_PACKET_SIZE_BYTES);
+        System.out.println("seek: "+ playPositionInseconds + ": "+ fis.getFilePointer()/TS_PACKET_SIZE_BYTES);
     }
 
     public void moveFisForRandomAccess(double playPosInSec) throws IOException {
         int PCRIndex = findBiggestPreviousPCRIndex(playPosInSec);
         int iFrameIndex = PCR_to_iFrames.get(PCRIndex).getiFrameIndex();
-        //System.out.println("PCRIndex: "+ PCRIndex+", FrameIndex: "+iFrameIndex);
+        System.out.println("PCRIndex: "+ PCRIndex+", FrameIndex: "+iFrameIndex);
 
         fis.seek(TS_PACKET_SIZE_BYTES * iFrameIndex);
     }
@@ -214,18 +213,18 @@ public class VideoStreamer {
 
             if(isH264iFrame(buf, numOfPackets)){//http://stackoverflow.com/questions/1957427/detect-mpeg4-h264-i-frame-idr-in-rtp-stream
                 iFrames.add(i);
-                //System.out.println("i: "+ i+", numOfPackets: " + numOfPackets);
+                System.out.println("i: "+ i+", numOfPackets: " + numOfPackets);
             }
         }
     }
 
-    //public static void main(String[] args) throws Exception {
+    public static void main(String[] args) throws Exception {
         /** with KeyFrameIndexTable */
-        //VideoStreamer vs = new VideoStreamer("movie.ts", true);
+        VideoStreamer vs = new VideoStreamer("movie.ts", true);
 
         /** test Random Access */
-        //vs.seek(9.11);
-        //vs.seek(107.0);
+        vs.seek(9.11);
+        vs.seek(107.0);
 
         /** without KeyFrameIndexTable */
         /*
@@ -244,7 +243,7 @@ public class VideoStreamer {
             printOneFrame_BytesToHex_noSpaces(buf, numPackets, i);
         }*/
 
-    //}
+    }
 
     private static void printOneFrame_BytesToHex_noSpaces(byte[] buf, int numOfPackets, int currFrameNumber ){
         for(int j=0; j < numOfPackets ; j++){
@@ -376,8 +375,8 @@ public class VideoStreamer {
         /** Write the next frame to "frame[]" as an array of byte. */
         int sizeOfNextFrame = numOfPackets * TS_PACKET_SIZE_BYTES;
 
-        //System.out.println("\n\n"+ nextFrameIndex +", " +numOfPackets+", "+ sizeOfNextFrame);
-        //System.out.printf("Frame size :  %d \n", sizeOfNextFrame);
+        System.out.println("\n\n"+ nextFrameIndex +", " +numOfPackets+", "+ sizeOfNextFrame);
+        System.out.printf("Frame size :  %d \n", sizeOfNextFrame);
         int sizeOfNextFrameCheck = fis.read (frame, 0, sizeOfNextFrame );
 
         return sizeOfNextFrame;
