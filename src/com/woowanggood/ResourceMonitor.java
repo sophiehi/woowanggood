@@ -1,4 +1,4 @@
-package com.woowanggood;
+//package com.woowanggood;
 
 import com.sun.management.OperatingSystemMXBean;
 
@@ -18,7 +18,8 @@ import java.util.concurrent.TimeUnit;
 //todo ThreadHandler에서 ResourceMonitor를 호출.
 public class ResourceMonitor {
     private final String ADDRESS_LOADBALANCER = "localhost";
-    private final int PORT_LOADBALANCER = 2000;//todo 같은 서버소켓으로 보내도 되나?
+    private final int PORT_LOADBALANCER = 7171;//todo 같은 서버소켓으로 보내도 되나?
+    private int myIp;
 
     private OperatingSystemMXBean osBean =
             (com.sun.management.OperatingSystemMXBean)
@@ -41,11 +42,9 @@ public class ResourceMonitor {
     private DataOutputStream dosWithServer;
 
     /** scheduler */
-    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-
     public ResourceMonitor() throws IOException {
-        this.socket = new Socket(ADDRESS_LOADBALANCER, PORT_LOADBALANCER);
-        this.dosWithServer = new DataOutputStream(socket.getOutputStream());
+        //this.socket = new Socket(ADDRESS_LOADBALANCER, PORT_LOADBALANCER);
+        //this.dosWithServer = new DataOutputStream(socket.getOutputStream());
 
         this.processCPUpercent = osBean.getProcessCpuLoad();
         this.availableVMsize  = osBean.getCommittedVirtualMemorySize();
@@ -53,45 +52,44 @@ public class ResourceMonitor {
         this.systemPMpercent  = osBean.getFreePhysicalMemorySize() / osBean.getTotalPhysicalMemorySize();
     }
 
-    public void updateAndReport() {
+
+    public static void main(String args[]) throws IOException {
+        ResourceMonitor rm = new ResourceMonitor();
+        rm.updateAndReport();
+    }
+
+    private final ScheduledExecutorService scheduler =
+            Executors.newScheduledThreadPool(1);
+
+    public void updateAndReport() throws IOException {
         final Runnable beeper = new Runnable() {
             public void run() {
+                System.out.println("update & report()");
                 updateInfo();
                 try {
                     reportToLoadbalancerPeriodically();
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
-
-                System.out.println("beep");
             }
         };
-
         final ScheduledFuture<?> beeperHandle =
-                scheduler.scheduleAtFixedRate(beeper, 10, 1, SECONDS);
+                scheduler.scheduleAtFixedRate(beeper, 0, 1, SECONDS);
 
-        //todo 1초가 아니라 1회로 하려면?
-        scheduler.schedule(new Runnable() {
-            public void run() { beeperHandle.cancel(true); }
-        }, 1, SECONDS);
     }
 
-    public void run(){
-        updateAndReport();
-    }
-
-    //@Scheduled
     public void updateInfo(){
-        System.out.println("update this.CPUUsage, this.memoryUsage");
+        System.out.println("update()");
         this.processCPUpercent = osBean.getProcessCpuLoad();
         this.availableVMsize = osBean.getCommittedVirtualMemorySize();
         this.systemCPUpercent = osBean.getSystemCpuLoad();
         this.systemPMpercent  = osBean.getFreePhysicalMemorySize() / osBean.getTotalPhysicalMemorySize();
+        System.out.println("result: "+this.processCPUpercent +", "+this.availableVMsize +", "+this.systemCPUpercent +", "+this.systemPMpercent);
     }
 
-    //@Scheduled
     public void reportToLoadbalancerPeriodically() throws IOException {
-        dosWithServer.writeUTF("hello from Resourse Monitor");//outputstream타고 socket타고 나감.
+        System.out.println("report()");
+        //dosWithServer.writeUTF("hello from Resourse Monitor");//outputstream타고 socket타고 나감.
     }
 }
 
