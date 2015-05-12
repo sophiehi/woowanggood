@@ -10,7 +10,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import static java.util.concurrent.TimeUnit.*;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Created by SophiesMac on 15. 5. 10..
@@ -18,8 +17,8 @@ import java.util.concurrent.TimeUnit;
 //todo ThreadHandler에서 ResourceMonitor를 호출.
 public class ResourceMonitor {
     private final String ADDRESS_LOADBALANCER = "localhost";
-    private final int PORT_LOADBALANCER = 7171;//todo 같은 서버소켓으로 보내도 되나?
-    private int myIp;
+    private final int PORT_LOADBALANCER = 7171;
+    private final String myIp ="A" ;
 
     private OperatingSystemMXBean osBean =
             (com.sun.management.OperatingSystemMXBean)
@@ -40,11 +39,13 @@ public class ResourceMonitor {
     /** socket & outputStream */
     private Socket socket;
     private DataOutputStream dosWithServer;
+    private String myIpAddress;
 
     /** scheduler */
     public ResourceMonitor() throws IOException {
-        //this.socket = new Socket(ADDRESS_LOADBALANCER, PORT_LOADBALANCER);
-        //this.dosWithServer = new DataOutputStream(socket.getOutputStream());
+        this.socket = new Socket(ADDRESS_LOADBALANCER, PORT_LOADBALANCER);
+        this.dosWithServer = new DataOutputStream(socket.getOutputStream());
+        //this.myIpAddress = socket.getInetAddress().getHostAddress(); //TODO
 
         this.processCPUpercent = osBean.getProcessCpuLoad();
         this.availableVMsize  = osBean.getCommittedVirtualMemorySize();
@@ -55,13 +56,13 @@ public class ResourceMonitor {
 
     public static void main(String args[]) throws IOException {
         ResourceMonitor rm = new ResourceMonitor();
-        rm.updateAndReport();
+        rm.startReporting();
     }
 
     private final ScheduledExecutorService scheduler =
             Executors.newScheduledThreadPool(1);
 
-    public void updateAndReport() throws IOException {
+    public void startReporting() throws IOException {
         final Runnable beeper = new Runnable() {
             public void run() {
                 System.out.println("update & report()");
@@ -84,12 +85,13 @@ public class ResourceMonitor {
         this.availableVMsize = osBean.getCommittedVirtualMemorySize();
         this.systemCPUpercent = osBean.getSystemCpuLoad();
         this.systemPMpercent  = osBean.getFreePhysicalMemorySize() / osBean.getTotalPhysicalMemorySize();
-        System.out.println("result: "+this.processCPUpercent +", "+this.availableVMsize +", "+this.systemCPUpercent +", "+this.systemPMpercent);
+        System.out.println("result"+this.myIp+": "+this.processCPUpercent +", "+this.availableVMsize +", "+this.systemCPUpercent +", "+this.systemPMpercent);
     }
 
     public void reportToLoadbalancerPeriodically() throws IOException {
         System.out.println("report()");
-        //dosWithServer.writeUTF("hello from Resourse Monitor");//outputstream타고 socket타고 나감.
+        dosWithServer.writeUTF("result"+this.myIp+": "+this.processCPUpercent +", "+this.availableVMsize +", "+this.systemCPUpercent +", "+this.systemPMpercent);//outputstream타고 socket타고 나감.
+        //dosWithServer.flush();
     }
 }
 
