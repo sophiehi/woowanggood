@@ -1,4 +1,4 @@
-//package com.woowanggood;
+package com.woowanggood;
 
 /**
  * Created by SophiesMac on 15. 5. 13..

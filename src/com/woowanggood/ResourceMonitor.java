@@ -1,8 +1,7 @@
-//package com.woowanggood;
+package com.woowanggood;
 
 import com.sun.management.OperatingSystemMXBean;
 //import com.woowanggood.MonitoredInfo;
-
 
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -20,12 +19,18 @@ import static java.util.concurrent.TimeUnit.*;
 /**
  * Created by SophiesMac on 15. 5. 10..
  */
-//todo ThreadHandler에서 ResourceMonitor를 호출.
 public class ResourceMonitor {
-    private final String ADDRESS_LOADBALANCER = "localhost";
-    private final int PORT_LOADBALANCER = 7171;
-    private String myIP;
-    private int myPort;
+
+    public static void main(String args[]) throws IOException {
+        //todo ThreadHandler에서 ResourceMonitor를 호출.
+        ResourceMonitor rm = new ResourceMonitor();
+        rm.startReporting();
+    }
+
+    private final String REMOTE_HOST = "localhost";
+    private final int REMOTE_PORT = 7171;
+    private String localHost_externalAddress;
+    private int localPort;
 
     private OperatingSystemMXBean osBean =
             (com.sun.management.OperatingSystemMXBean)
@@ -49,7 +54,7 @@ public class ResourceMonitor {
 
     /** scheduler */
     public ResourceMonitor() throws IOException {
-        this.socket = new Socket(ADDRESS_LOADBALANCER, PORT_LOADBALANCER);
+        this.socket = new Socket(REMOTE_HOST, REMOTE_PORT);
         this.dosWithServer = new DataOutputStream(socket.getOutputStream());
 
         this.processCPUpercent = osBean.getProcessCpuLoad();
@@ -57,12 +62,11 @@ public class ResourceMonitor {
         this.systemCPUpercent = osBean.getSystemCpuLoad();
         this.systemPMpercent  = osBean.getFreePhysicalMemorySize() / osBean.getTotalPhysicalMemorySize();
 
-        //get IP
-        this.myIP = getIP();
+        //get localIP
+        this.localHost_externalAddress = getIP();
 
-        //TODO
-        //get port or something to Identify
-        myPort = 0123 ;
+        //get localPort
+        this.localPort = socket.getLocalPort();
     }
 
 
@@ -85,15 +89,10 @@ public class ResourceMonitor {
             boolean check2 = !inetAddress.toString().contains("127.0.0.1");
             //if(netint.getDisplayName().contains("en0")){
             if(check1 && check2){
-                return inetAddress.toString();
+                return inetAddress.toString().replace("/", "");
             }
         }
         return "A";
-    }
-
-    public static void main(String args[]) throws IOException {
-        ResourceMonitor rm = new ResourceMonitor();
-        rm.startReporting();
     }
 
     private final ScheduledExecutorService scheduler =
@@ -122,14 +121,14 @@ public class ResourceMonitor {
         this.availableVMsize = osBean.getCommittedVirtualMemorySize();
         this.systemCPUpercent = osBean.getSystemCpuLoad();
         this.systemPMpercent  = osBean.getFreePhysicalMemorySize() / osBean.getTotalPhysicalMemorySize();
-        System.out.println("result"+this.myIP+": "+this.processCPUpercent +", "+this.availableVMsize +", "+this.systemCPUpercent +", "+this.systemPMpercent);
+        System.out.println("result"+this.localHost_externalAddress +": "+this.processCPUpercent +", "+this.availableVMsize +", "+this.systemCPUpercent +", "+this.systemPMpercent);
     }
 
     public void reportToLoadbalancerPeriodically() throws IOException {
         System.out.println("report()");
         MonitoredInfo mi = new MonitoredInfo(this.processCPUpercent, this.availableVMsize,
                                         this.systemCPUpercent, this.systemPMpercent,
-                                        this.myIP, this.myPort);
+                                        this.localHost_externalAddress, this.localPort);
 
         dosWithServer.writeUTF(mi.toString());//outputstream타고 socket타고 나감.
         //dosWithServer.flush();
