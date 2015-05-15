@@ -8,6 +8,10 @@ public class MonitoredInfo {
     private double processCPUpercent ;
     private long availableVMsize ;
 
+    /** network */
+    private double networkBandwidthUsage;
+    private long availableNetworkBandwith;
+
     /** system */
     private double systemCPUpercent ;
     private double systemPMpercent ;
@@ -23,13 +27,18 @@ public class MonitoredInfo {
     public MonitoredInfo(double processCPUpercent, long availableVMsize,
                          double systemCPUpercent, double systemPMpercent,
                          String myIP, int myPort) {
-        this(processCPUpercent, availableVMsize, systemCPUpercent, systemPMpercent, -1, -1, myIP, myPort);
+        this(processCPUpercent, availableVMsize, systemCPUpercent, systemPMpercent,
+                -1.0, -1, -1, -1, myIP, myPort);
     }
 
 
     public MonitoredInfo(double processCPUpercent, long availableVMsize,
                          double systemCPUpercent, double systemPMpercent,
-                         int numOfThreads, int numOfSessions, String myIP, int myPort) {
+                         double networkBandwidthUsage, long availableNetworkBandwith,
+                         int numOfThreads, int numOfSessions,
+                         String myIP, int myPort) {
+        this.networkBandwidthUsage = networkBandwidthUsage;
+        this.availableNetworkBandwith = availableNetworkBandwith;
         this.processCPUpercent = processCPUpercent;
         this.availableVMsize = availableVMsize;
         this.systemCPUpercent = systemCPUpercent;
@@ -44,6 +53,8 @@ public class MonitoredInfo {
     public String toString(){
         return "{\""+this.myIP+":"+this.myPort+"\":"
                 +"{"
+                    +"{\"networkBandwidthUsage\":"+"\""+this.networkBandwidthUsage+"\"}, "
+                    +"{\"availableNetworkBandwith\":"+"\""+this.availableNetworkBandwith+"\"}, "
                     +"{\"processCPUpercent\":"+"\""+this.processCPUpercent+"\"}, "
                     +"{\"availableVMsize\":"+"\""+this.availableVMsize+"\"}, "
                     +"{\"systemCPUpercent\":"+"\""+this.systemCPUpercent+"\"}, "

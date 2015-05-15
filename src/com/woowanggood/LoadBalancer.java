@@ -17,17 +17,20 @@ public class LoadBalancer {//todo merge with SocketHandler
         String resourceReport;
 
         try {System.out.println("Starting serverSocket " + host + ":" + port );
-            ServerSocket serverSocket = new ServerSocket(port);
+            ServerSocket listener = new ServerSocket(port);
             //todo change blocking socket to a new thread
-            Socket socket = serverSocket.accept();
+            Socket socket = listener.accept();
 
             while(true){
                 DataInputStream is = new DataInputStream(socket.getInputStream());
                 resourceReport = is.readUTF();
                 System.out.println(resourceReport);
+                //System.out.println("1. "+serverSocket.getInetAddress() +":" +serverSocket.getLocalPort());
+                System.out.println("2. "+socket.getInetAddress() + ":" + socket.getPort());
                 //resourceReport json example as below:
                 /* {"192.168.0.127:51926":
-                    {{"processCPUpercent":"6.46434166426508E-4"},{"availableVMsize":"6170157056"},
+                    {{"networkBandwithUsage":"0.12"},{"availableNetworkBandwith":"1256"},
+                    {"processCPUpercent":"6.46434166426508E-4"},{"availableVMsize":"6170157056"},
                     {"systemCPUpercent":"0.07711442786069651"},{"systemPMpercent":"0.0"}}} */
             }
 
