@@ -3,7 +3,8 @@ package com.woowanggood;
 /**
  * Created by swchoi06 on 4/4/15.
  */
-import java.util.*;
+
+import java.util.Arrays;
 
 public class RTPPacket {
     final int HEADER_SIZE = 12; // size of the RTP header

@@ -25,7 +25,7 @@ public class VideoStreamer {
     private static LinkedList<PCR_to_iFrame> PCR_to_iFrames = new LinkedList<PCR_to_iFrame>();
 
     public VideoStreamer() throws Exception {
-        this("movie_new.ts");
+        this("movie.ts");
     }
 
     public VideoStreamer(String filename) throws Exception {
@@ -338,6 +338,8 @@ public class VideoStreamer {
 
     //static ?
     public boolean isStartingPacket(byte [] buf) throws IOException{
+        System.out.println("11");
+
         int payloadUnitStartIndicator;//TS Header 10th Bit.
         int streamId = -1; //PES Header 4th Byte (index 0 = 1st)
         payloadUnitStartIndicator = (buf[1] >>> 6) & 0x01;
@@ -358,6 +360,9 @@ public class VideoStreamer {
                 }
             }
         }
+        System.out.println("22");
+
+
 
         return false;
     }

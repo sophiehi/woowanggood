@@ -1,59 +1,129 @@
 package com.woowanggood;
 
+import com.google.gson.Gson;
+
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 
 /**
- * Created by SophiesMac on 15. 5. 12..
+ * Created by SophiesMac on 15. 5. 13..
  */
-public class LoadBalancer {//todo merge with SocketHandler
-    public static final String host = "localhost";
-    public static final int port = 7171;
+public class LoadBalancer {
+    public static final String host = "172.30.24.169";
+    public static final int port = 7171; // for monitoring resource
 
-    public static void main(String args[]) {
-        //todo SocketHandler에서 different port소켓 하나 열기
-        String resourceReport;
-
-        try {System.out.println("Starting serverSocket " + host + ":" + port );
+    public void start() {
+        try {
+            System.out.println("Starting LoadBalancer : " + host + ":" + port);
             ServerSocket listener = new ServerSocket(port);
-            //todo change blocking socket to a new thread
-            Socket socket = listener.accept();
 
-            while(true){
-                DataInputStream is = new DataInputStream(socket.getInputStream());
-                resourceReport = is.readUTF();
-                System.out.println(resourceReport);
-                //System.out.println("1. "+serverSocket.getInetAddress() +":" +serverSocket.getLocalPort());
-                System.out.println("2. "+socket.getInetAddress() + ":" + socket.getPort());
-                //resourceReport json example as below:
-                /* {"192.168.0.127:51926":
-                    {{"networkBandwithUsage":"0.12"},{"availableNetworkBandwith":"1256"},
-                    {"processCPUpercent":"6.46434166426508E-4"},{"availableVMsize":"6170157056"},
-                    {"systemCPUpercent":"0.07711442786069651"},{"systemPMpercent":"0.0"}}} */
+            while (true) {
+                Socket socket = listener.accept();
+                new ResourceMonitorThread(socket).start();
             }
-
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    /*
-    static class rmThread extends Thread {
-        private Socket clientSocket;
-        private Socket serverSocket;
+    static class ResourceMonitorThread extends Thread {
+        private Socket socket;
+        private String resourceReport;
+        private static MonitoredInfoWrapper formA;
+        private static MonitoredInfoWrapper formB;
 
-        private DataInputStream disdisWithServer;
-
-        public rmThread(Socket clientSocket) {
-            this.clientSocket = clientSocket;
+        public ResourceMonitorThread(Socket socket) {
+            this.socket = socket;
         }
 
         @Override
         public void run() {
+            Gson gson = new Gson();
 
+            try {
+                while (true) {
+                    DataInputStream is = new DataInputStream(socket.getInputStream());
+                    resourceReport = is.readUTF();
+                    formA = gson.fromJson(resourceReport, MonitoredInfoWrapper.class);
+                    // System.out.println("Computer A : " + "(" + formA.monitoredInfo.getMyPort() + ")\n" + resourceReport);
+
+                    resourceReport = is.readUTF();
+                    formB = gson.fromJson(resourceReport, MonitoredInfoWrapper.class);
+                    // System.out.println("Computer B : " + "(" + formA.monitoredInfo.getMyPort() + ")\n" + resourceReport);
+
+                    //resourceReport json example as below:
+                    /* {"192.168.0.127:51926":
+                        [{"networkBandwithUsage":"0.12"},{"availableNetworkBandwith":"1256"},
+                        {"processCPUpercent":"6.46434166426508E-4"},{"availableVMsize":"6170157056"},
+                        {"systemCPUpercent":"0.07711442786069651"},{"systemPMpercent":"0.0"}]} */
+                }
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        public static int selectServer() {
+            int selected;
+
+            // if (formA.monitoredInfo.getNetworkBandwidthUsage() <= 0.75 && formB.monitoredInfo.getNetworkBandwidthUsage() <= 0.75) {
+                if (formA.monitoredInfo.getNumOfSessions() <= 8 && formB.monitoredInfo.getNumOfSessions() <= 8) {
+                    if (formA.monitoredInfo.getNumOfThreads() <= 4 && formB.monitoredInfo.getNumOfThreads() < 4) {
+                        if (formA.monitoredInfo.getProcessCPUpercent() <= 0.4 && formB.monitoredInfo.getProcessCPUpercent() <= 0.4) {
+                            selected = (formA.monitoredInfo.getAvailableVMsize() > formB.monitoredInfo.getAvailableVMsize()) ? 0 : 1;
+                            if (selected == 0)
+                                System.out.println("Computer A is selected(Available VM size : A > B)");
+                            else
+                                System.out.println("Computer B is selected(Available VM size : A < B)");
+                        }
+                        else if (formA.monitoredInfo.getProcessCPUpercent() <= 0.4) {
+                            selected = 0;
+                            System.out.println("Computer A is selected(process CPU usage of B exceeds max value)");
+                        }
+                        else if (formB.monitoredInfo.getProcessCPUpercent() <= 0.4) {
+                            selected = 1;
+                            System.out.println("Computer B is selected(process CPU usage of A exceeds max value)");
+                        }
+                        else {
+                            selected = 0;
+                            System.out.println("Computer A is selected(process CPU usages of both computer exceed max value");
+                        }
+                    } else if (formA.monitoredInfo.getNumOfThreads() <= 4) {
+                        selected = 0;
+                        System.out.println("Computer A is selected(The number of threads in B exceeds max value)");
+                    }
+                    else if (formB.monitoredInfo.getNumOfThreads() <= 4) {
+                        selected = 1;
+                        System.out.println("Computer B is selected(The number of threads in A exceeds max value)");
+                    }
+                    else {
+                        selected = 0;
+                        System.out.println("Computer A is selected(The number of threads in both computer exceeds max value)");
+                    }
+                } else if (formA.monitoredInfo.getNumOfSessions() <= 8) {
+                    selected = 0;
+                    System.out.println("Computer A is selected(The number of sessions in B exceeds max value)");
+                }
+                else if (formB.monitoredInfo.getNumOfSessions() <= 8) {
+                    selected = 1;
+                    System.out.println("Computer B is selected(The number of sessions in A exceeds max value)");
+                }
+                else {
+                    selected = 0;
+                    System.out.println("Computer A is selected(The number of sessions in both computer exceeds max value)");
+                }
+            /*}
+            else if (formA.monitoredInfo.getNetworkBandwidthUsage() > 0.75)
+                selected = 1;
+            else if (formB.monitoredInfo.getNetworkBandwidthUsage() > 0.75)
+                selected = 0;
+            else
+                selected = 0;*/
+
+            return selected;
         }
     }
-    */
 }

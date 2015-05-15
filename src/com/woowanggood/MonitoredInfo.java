@@ -1,22 +1,24 @@
 package com.woowanggood;
 
+import com.google.gson.Gson;
+
 /**
  * Created by SophiesMac on 15. 5. 13..
  */
 public class MonitoredInfo {
     /** process */
-    private double processCPUpercent ;
-    private long availableVMsize ;
+    private double processCPUpercent;
+    private long availableVMsize;
 
     /** network */
     private double networkBandwidthUsage;
     private long availableNetworkBandwith;
 
     /** system */
-    private double systemCPUpercent ;
-    private double systemPMpercent ;
+    private double systemCPUpercent;
+    private double systemPMpercent;
 
-    /** num of clients or sessions*/
+    /** num of clients or sessions */
     private int numOfThreads;
     private int numOfSessions;
 
@@ -24,19 +26,22 @@ public class MonitoredInfo {
     private String myIP;
     private int myPort;
 
-    public MonitoredInfo(double processCPUpercent, long availableVMsize,
-                         double systemCPUpercent, double systemPMpercent,
-                         String myIP, int myPort) {
-        this(processCPUpercent, availableVMsize, systemCPUpercent, systemPMpercent,
-                -1.0, -1, -1, -1, myIP, myPort);
+    public MonitoredInfo(String myIP, int myPort,
+                         double processCPUpercent, long availableVMsize,
+                         double networkBandwidthUsage, long availableNetworkBandwith,
+                         double systemCPUpercent, double systemPMpercent) {
+        this(myIP, myPort, processCPUpercent, availableVMsize,
+                networkBandwidthUsage, availableNetworkBandwith, systemCPUpercent, systemPMpercent,
+                -1, -1);
     }
 
-
-    public MonitoredInfo(double processCPUpercent, long availableVMsize,
-                         double systemCPUpercent, double systemPMpercent,
+    public MonitoredInfo(String myIP, int myPort,
+                         double processCPUpercent, long availableVMsize,
                          double networkBandwidthUsage, long availableNetworkBandwith,
-                         int numOfThreads, int numOfSessions,
-                         String myIP, int myPort) {
+                         double systemCPUpercent, double systemPMpercent,
+                         int numOfThreads, int numOfSessions) {
+        this.myIP = myIP;
+        this.myPort = myPort;
         this.networkBandwidthUsage = networkBandwidthUsage;
         this.availableNetworkBandwith = availableNetworkBandwith;
         this.processCPUpercent = processCPUpercent;
@@ -45,30 +50,22 @@ public class MonitoredInfo {
         this.systemPMpercent = systemPMpercent;
         this.numOfThreads = numOfThreads;
         this.numOfSessions = numOfSessions;
-        this.myIP = myIP;
-        this.myPort = myPort;
     }
 
     @Override
-    public String toString(){
-        return "{\""+this.myIP+":"+this.myPort+"\":"
-                +"{"
-                    +"{\"networkBandwidthUsage\":"+"\""+this.networkBandwidthUsage+"\"}, "
-                    +"{\"availableNetworkBandwith\":"+"\""+this.availableNetworkBandwith+"\"}, "
-                    +"{\"processCPUpercent\":"+"\""+this.processCPUpercent+"\"}, "
-                    +"{\"availableVMsize\":"+"\""+this.availableVMsize+"\"}, "
-                    +"{\"systemCPUpercent\":"+"\""+this.systemCPUpercent+"\"}, "
-                    +"{\"systemPMpercent\":"+"\""+this.systemPMpercent+"\"}"
-                +"}}";
+    public String toString() {
+        Gson gson = new Gson();
+        return gson.toJson(new MonitoredInfoWrapper(myIP, myPort, processCPUpercent, availableVMsize, networkBandwidthUsage, availableNetworkBandwith,
+                systemCPUpercent, systemPMpercent, numOfThreads, numOfSessions));
     }
 
-    public double getProcessCPUpercent() {
-        return processCPUpercent;
-    }
+    public double getProcessCPUpercent() { return processCPUpercent; }
 
-    public long getAvailableVMsize() {
-        return availableVMsize;
-    }
+    public long getAvailableVMsize() { return availableVMsize; }
+
+    public double getNetworkBandwidthUsage() { return networkBandwidthUsage; }
+
+    public long getAvailableNetworkBandwith() { return availableNetworkBandwith; }
 
     public double getSystemCPUpercent() {
         return systemCPUpercent;
@@ -78,10 +75,18 @@ public class MonitoredInfo {
         return systemPMpercent;
     }
 
+    public void setNumOfThreads(int numOfThreads) { this.numOfThreads = numOfThreads; } // todo
+    public void setNumOfSessions(int numOfSessions) { this.numOfSessions = numOfSessions; }
+    public void incNumOfSessions(){
+        this.numOfSessions++;
+    }
+    public void decNumOfSessions(){
+        this.numOfSessions--;
+    }
+
     public int getNumOfThreads() {
         return numOfThreads;
     }
-
     public int getNumOfSessions() {
         return numOfSessions;
     }
