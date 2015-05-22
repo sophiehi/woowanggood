@@ -11,8 +11,18 @@ import java.net.Socket;
  * Created by SophiesMac on 15. 5. 13..
  */
 public class LoadBalancer {
-    public static final String host = "192.168.0.105"; // proxy server ip
+    public static final String host = "localhost";
     public static final int port = 7171; // for monitoring resource
+
+    //TESTMAIN
+    public static void main(String args[]) {
+        try {System.out.println("Starting serverSocket " + host + ":" + port);
+            ServerSocket listener = new ServerSocket(port);
+            while (true) {
+                Socket socket = listener.accept();
+                new ResourceMonitorThread(socket).start();}
+        } catch (IOException e) { e.printStackTrace();}
+    }
 
     public void start() {
         try {

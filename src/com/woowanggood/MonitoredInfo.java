@@ -1,7 +1,8 @@
 package com.woowanggood;
 
 import com.google.gson.Gson;
-
+//good-ref: 대역폭 계산 http://docs.oracle.com/cd/E19159-01/820-4902/abfcr/index.html
+//todo good-ref: RTP/H.264 대역폭 https://technet.microsoft.com/ko-kr/library/jj688118(v=ocs.15).aspx
 /**
  * Created by SophiesMac on 15. 5. 13..
  */

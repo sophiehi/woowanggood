@@ -40,5 +40,6 @@ crashlytics-build.properties
 *.class
 *.ts
 
+target/
 /tmp/
 *.DS_Store

@@ -1,6 +1,8 @@
 package com.woowanggood;
 
 import com.sun.management.OperatingSystemMXBean;
+import org.hyperic.sigar.Sigar;
+import org.hyperic.sigar.SigarException;
 
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -21,7 +23,13 @@ import static java.util.concurrent.TimeUnit.SECONDS;
  * Created by SophiesMac on 15. 5. 10..
  */
 public class ResourceMonitor {
-    private final String REMOTE_HOST = "127.0.0.1"; // proxy server ip
+    //TESTMAIN
+    public static void main(String args[]) throws IOException, SigarException, InterruptedException {
+        ResourceMonitor rm = new ResourceMonitor();
+        rm.startReporting();
+    }
+
+    private final String REMOTE_HOST = "localhost";
     private final int REMOTE_PORT = 7171;
     private String localHost_externalAddress;
     private int localPort;
@@ -51,9 +59,14 @@ public class ResourceMonitor {
     private DataOutputStream dosWithServer;
 
     /** scheduler */
-    public ResourceMonitor() throws IOException {
+    public ResourceMonitor() throws IOException, InterruptedException, SigarException {
+        new NetworkMonitor(new Sigar());
+
         this.socket = new Socket(REMOTE_HOST, REMOTE_PORT);
         this.dosWithServer = new DataOutputStream(socket.getOutputStream());
+
+        this.networkBandwidthUsage = -1.0;
+        this.availableNetworkBandwith = -1;
 
         this.processCPUpercent = osBean.getProcessCpuLoad();
         this.availableVMsize  = osBean.getCommittedVirtualMemorySize();
@@ -98,7 +111,8 @@ public class ResourceMonitor {
     public void startReporting() throws IOException {
         final Runnable beeper = new Runnable() {
             public void run() {
-                updateInfo();
+                System.out.println("update & report()");
+                try {updateInfo();} catch (SigarException e) { e.printStackTrace();}
                 try {
                     reportToLoadBalancerPeriodically();
                 } catch (IOException e) {
@@ -110,16 +124,28 @@ public class ResourceMonitor {
                 scheduler.scheduleAtFixedRate(beeper, 0, 1, SECONDS);
     }
 
-    public void updateInfo() {
+    public void updateInfo() throws SigarException {
+        System.out.println("update()");
         this.processCPUpercent = osBean.getProcessCpuLoad();
         this.availableVMsize = osBean.getCommittedVirtualMemorySize();
         this.systemCPUpercent = osBean.getSystemCpuLoad();
         this.systemPMpercent  = osBean.getFreePhysicalMemorySize() / osBean.getTotalPhysicalMemorySize();
-        this.networkBandwidthUsage = -1.0; // todo
-        this.availableNetworkBandwith = -1; // todo
 
-        System.out.println("result : " + this.localHost_externalAddress + ": " + this.processCPUpercent + ", " + this.availableVMsize
-                + ", " + this.systemCPUpercent + ", " + this.systemPMpercent);
+        //todo change name, Usage -> TransmittedBytes
+        this.networkBandwidthUsage = NetworkMonitor.getMetric()[1];
+        //todo change name, avalable -> max ?
+        this.availableNetworkBandwith = -1;
+        //TODO TODO 금요일에 두대로 iperf로 재보기 : performance, MTU ??
+        //https://iperf.fr/
+
+        //ref: http://sourceforge.net/projects/ibm/files/
+
+
+        System.out.println("result: "
+                + this.localHost_externalAddress + ":" +this.localPort +" "
+                + this.processCPUpercent + ", " + this.availableVMsize + ", "
+                + this.networkBandwidthUsage + ", " + this.availableNetworkBandwith+ ", "
+                + this.systemCPUpercent + ", " + this.systemPMpercent);
     }
 
     public void reportToLoadBalancerPeriodically() throws IOException {
