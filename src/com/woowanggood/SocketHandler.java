@@ -8,15 +8,15 @@ import java.net.Socket;
  * Created by KangGyu on 2015-05-01.
  */
 public class SocketHandler {
-    public static final String host = "192.168.0.102";
+    public static final String hostA = "192.168.0.105";
+    public static final String hostB = "192.168.0.101";
     public static final int localPort = 2000;
-    public static final int remotePortA = 3000;
-    public static final int remotePortB = 3001;
+    public static final int remotePort = 3000;
 
     public static void main(String[] args) {
         try {
             // Print a start-up message
-            System.out.println("Starting proxy server for " + host + " : " + "3000~3001(Real server ports)" + " on port " + localPort);
+            System.out.println("Starting proxy server!");
 
             ServerSocket proxyServerSocket = null;
             try {
@@ -36,8 +36,7 @@ public class SocketHandler {
 
             while (true) {
                 Socket socket = proxyServerSocket.accept();
-                //new ProxyServerThread(socket, LoadBalancer.ResourceMonitorThread.selectServer() == 0 ? remotePortA : remotePortB).start();
-                new ProxyServerThread(socket, 3000).start();
+                new ProxyServerThread(socket, LoadBalancer.ResourceMonitorThread.selectServer() == 0 ? hostA : hostB).start();
             }
         }
         catch (Exception e) {
@@ -51,14 +50,14 @@ public class SocketHandler {
     static class ProxyServerThread extends Thread {
         private Socket clientSocket;
         private Socket serverSocket;
-        private int remotePort;
+        private String remoteHost;
 
         private DataInputStream disWithClient, disWithServer;
         private DataOutputStream dosWithClient, dosWithServer;
 
-        public ProxyServerThread(Socket clientSocket, int remotePort) {
+        public ProxyServerThread(Socket clientSocket, String remoteHost) {
             this.clientSocket = clientSocket;
-            this.remotePort = remotePort;
+            this.remoteHost = remoteHost;
         }
 
         @Override
@@ -75,7 +74,7 @@ public class SocketHandler {
             }
 
             try {
-                serverSocket = new Socket(host, remotePort);
+                serverSocket = new Socket(remoteHost, remotePort);
                 disWithServer = new DataInputStream(serverSocket.getInputStream());
                 dosWithServer = new DataOutputStream(serverSocket.getOutputStream());
                 dosWithServer.writeUTF(clientSocket.getInetAddress().getHostAddress());

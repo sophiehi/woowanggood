@@ -29,7 +29,7 @@ public class EventHandler extends Thread {
     private final String TEARDOWN = "TEARDOWN";
     private final String OPTIONS = "OPTIONS";
     private final String DESCRIBE = "DESCRIBE";
-
+    private final String NONE = "NONE";
     // RTP variables:
     private DatagramSocket RTPSocket; // socket to be used to send and receive UDP packets
     private DatagramPacket UDPPacket; // UDP packet containing the video frames
@@ -41,7 +41,7 @@ public class EventHandler extends Thread {
     private VideoStreamer video; //VideoStream object used to access video frames
     private byte[] buf = new byte[200000]; //buffer used to store the images to send to the client
     // private String videoFileName = "/Users/swchoi06/Downloads/movie.ts"; //video file requested from the client
-    private String videoFileName = "./movie.ts"; //video file requested from the client
+    private String videoFileName = "movie.ts"; //video file requested from the client
 
     private final int TS_PAYLOAD_TYPE = 33; //RTP payload type for TS video
     private final String VIDEO_LENGTH = "507.238"; //length of the video in sec
@@ -56,19 +56,16 @@ public class EventHandler extends Thread {
     private boolean pauseSendingRTPPacket = false;
     private Thread sendRTPThread;
 
-    public EventHandler(Socket clientSocket, int RTPPort, String client_ip) {
-        try{
+    public EventHandler(Socket clientSocket, int RTPPort, String client_IP) {
+        try {
             this.RTSPSocket = clientSocket;
-
-            this.IP_4_client = clientSocket.getInetAddress().getHostAddress();
-            this.IP_4_client = client_ip;
-
+            this.IP_4_client = client_IP;
             this.RTPSocketPort = RTPPort;
             this.RTPClientPort = String.valueOf(clientSocket.getLocalPort()) + "-" + String.valueOf(clientSocket.getLocalPort()+1);
 
             //Get Client IP address
             this.clientIPAddr = InetAddress.getByName(IP_4_client);
-        }catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
@@ -96,7 +93,9 @@ public class EventHandler extends Thread {
         while (!isDone) {
             // Parse RTSP Request
             requestType = parseRTSPRequest();
-            System.out.println("Current Request Type : " + requestType);
+
+            if (!requestType.equals(NONE))
+                System.out.println("Current Request Type : " + requestType);
 
             if (requestType.equals(OPTIONS)) {
                 sendRTSPResponse(requestType);
@@ -153,7 +152,7 @@ public class EventHandler extends Thread {
 
                 sendRTSPResponse(requestType);
                 // Start sendRTPThread
-                //sendRTPPacket();
+                // sendRTPPacket();
                 pauseSendingRTPPacket = false;
 
                 StringTokenizer tokens = new StringTokenizer(RTSPRange, "=");
@@ -161,17 +160,16 @@ public class EventHandler extends Thread {
                 StringTokenizer range = new StringTokenizer(tokens.nextToken(), "-");
 
                 double min = Double.parseDouble(range.nextToken());
-                try{
-                    if(min != 0.0){
-
+                try {
+                    if (min != 0.0) {
                         video.seek(min);
                     }
 
-                }catch (Exception e){
+                } catch (Exception e) {
                     e.printStackTrace();
                 }
 
-                if(sendRTPThread == null){
+                if (sendRTPThread == null) {
                     sendRTPThread = new Thread() {
                         public void run(){
                             try {

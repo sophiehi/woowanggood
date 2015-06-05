@@ -11,12 +11,12 @@ import java.net.Socket;
  * Created by SophiesMac on 15. 5. 13..
  */
 public class LoadBalancer {
-    public static final String host = "172.30.24.169";
+    public static final String host = "192.168.0.105"; // proxy server ip
     public static final int port = 7171; // for monitoring resource
 
     public void start() {
         try {
-            System.out.println("Starting LoadBalancer : " + host + ":" + port);
+            System.out.println("Starting load balancer in " + host + ":" + port);
             ServerSocket listener = new ServerSocket(port);
 
             while (true) {
@@ -54,7 +54,7 @@ public class LoadBalancer {
                     formB = gson.fromJson(resourceReport, MonitoredInfoWrapper.class);
                     // System.out.println("Computer B : " + "(" + formA.monitoredInfo.getMyPort() + ")\n" + resourceReport);
 
-                    //resourceReport json example as below:
+                    // resourceReport json example as below:
                     /* {"192.168.0.127:51926":
                         [{"networkBandwithUsage":"0.12"},{"availableNetworkBandwith":"1256"},
                         {"processCPUpercent":"6.46434166426508E-4"},{"availableVMsize":"6170157056"},
