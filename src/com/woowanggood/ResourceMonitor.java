@@ -23,13 +23,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
  * Created by SophiesMac on 15. 5. 10..
  */
 public class ResourceMonitor {
-    //TESTMAIN
-    public static void main(String args[]) throws IOException, SigarException, InterruptedException {
-        ResourceMonitor rm = new ResourceMonitor();
-        rm.startReporting();
-    }
-
-    private final String REMOTE_HOST = "localhost";
+    private final String REMOTE_HOST = "192.168.0.2";
     private final int REMOTE_PORT = 7171;
     private String localHost_externalAddress;
     private int localPort;
@@ -141,11 +135,10 @@ public class ResourceMonitor {
         //ref: http://sourceforge.net/projects/ibm/files/
 
 
-        System.out.println("result: "
-                + this.localHost_externalAddress + ":" +this.localPort +" "
+        System.out.println("System resource usage : "
+                + this.localHost_externalAddress + ":" + this.localPort + " "
                 + this.processCPUpercent + ", " + this.availableVMsize + ", "
-                + this.networkBandwidthUsage + ", " + this.availableNetworkBandwith+ ", "
-                + this.systemCPUpercent + ", " + this.systemPMpercent);
+                + this.networkBandwidthUsage + ", " + this.systemCPUpercent);
     }
 
     public void reportToLoadBalancerPeriodically() throws IOException {

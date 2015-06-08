@@ -11,7 +11,7 @@ import java.net.Socket;
  * Created by SophiesMac on 15. 5. 13..
  */
 public class LoadBalancer {
-    public static final String host = "localhost";
+    public static final String host = "192.168.0.2"; // proxy server ip
     public static final int port = 7171; // for monitoring resource
 
     //TESTMAIN
@@ -77,61 +77,36 @@ public class LoadBalancer {
         }
 
         public static int selectServer() {
-            int selected;
+            int selected = 0;
+            final double CPU_LIMIT = 0.5;
+            final long VM_LIMIT = 2000000000;
 
-            // if (formA.monitoredInfo.getNetworkBandwidthUsage() <= 0.75 && formB.monitoredInfo.getNetworkBandwidthUsage() <= 0.75) {
-                if (formA.monitoredInfo.getNumOfSessions() <= 8 && formB.monitoredInfo.getNumOfSessions() <= 8) {
-                    if (formA.monitoredInfo.getNumOfThreads() <= 4 && formB.monitoredInfo.getNumOfThreads() < 4) {
-                        if (formA.monitoredInfo.getProcessCPUpercent() <= 0.4 && formB.monitoredInfo.getProcessCPUpercent() <= 0.4) {
-                            selected = (formA.monitoredInfo.getAvailableVMsize() > formB.monitoredInfo.getAvailableVMsize()) ? 0 : 1;
-                            if (selected == 0)
-                                System.out.println("Computer A is selected(Available VM size : A > B)");
-                            else
-                                System.out.println("Computer B is selected(Available VM size : A < B)");
-                        }
-                        else if (formA.monitoredInfo.getProcessCPUpercent() <= 0.4) {
-                            selected = 0;
-                            System.out.println("Computer A is selected(process CPU usage of B exceeds max value)");
-                        }
-                        else if (formB.monitoredInfo.getProcessCPUpercent() <= 0.4) {
-                            selected = 1;
-                            System.out.println("Computer B is selected(process CPU usage of A exceeds max value)");
-                        }
-                        else {
-                            selected = 0;
-                            System.out.println("Computer A is selected(process CPU usages of both computer exceed max value");
-                        }
-                    } else if (formA.monitoredInfo.getNumOfThreads() <= 4) {
-                        selected = 0;
-                        System.out.println("Computer A is selected(The number of threads in B exceeds max value)");
-                    }
-                    else if (formB.monitoredInfo.getNumOfThreads() <= 4) {
-                        selected = 1;
-                        System.out.println("Computer B is selected(The number of threads in A exceeds max value)");
-                    }
-                    else {
-                        selected = 0;
-                        System.out.println("Computer A is selected(The number of threads in both computer exceeds max value)");
-                    }
-                } else if (formA.monitoredInfo.getNumOfSessions() <= 8) {
-                    selected = 0;
-                    System.out.println("Computer A is selected(The number of sessions in B exceeds max value)");
-                }
-                else if (formB.monitoredInfo.getNumOfSessions() <= 8) {
+            System.out.println("CPU : " + formA.monitoredInfo.getProcessCPUpercent() + "/" + formB.monitoredInfo.getProcessCPUpercent());
+            System.out.println("VM : " + formA.monitoredInfo.getAvailableVMsize() + "/" + formB.monitoredInfo.getAvailableVMsize());
+
+            if (formA.monitoredInfo.getProcessCPUpercent() <= CPU_LIMIT && formB.monitoredInfo.getProcessCPUpercent() <= CPU_LIMIT) {
+                if (formA.monitoredInfo.getAvailableVMsize() >= VM_LIMIT && formB.monitoredInfo.getAvailableVMsize() >= VM_LIMIT) {
+                    selected = formA.monitoredInfo.getNetworkBandwidthUsage() < formB.monitoredInfo.getNetworkBandwidthUsage() ? 0 : 1;
+                } else if (formA.monitoredInfo.getAvailableVMsize() < VM_LIMIT && formB.monitoredInfo.getAvailableVMsize() >= VM_LIMIT) {
                     selected = 1;
-                    System.out.println("Computer B is selected(The number of sessions in A exceeds max value)");
+                } else if (formB.monitoredInfo.getAvailableVMsize() < VM_LIMIT && formA.monitoredInfo.getAvailableVMsize() >= VM_LIMIT) {
+                    selected = 0;
                 }
                 else {
-                    selected = 0;
-                    System.out.println("Computer A is selected(The number of sessions in both computer exceeds max value)");
+                    System.out.println("The server is busy! : " + "Bandwidth : " + formA.monitoredInfo.getNetworkBandwidthUsage() + "/" + formB.monitoredInfo.getNetworkBandwidthUsage());
+                    selected = formA.monitoredInfo.getNetworkBandwidthUsage() < formB.monitoredInfo.getNetworkBandwidthUsage() ? 0 : 1;
                 }
-            /*}
-            else if (formA.monitoredInfo.getNetworkBandwidthUsage() > 0.75)
+            }
+            else if (formA.monitoredInfo.getProcessCPUpercent() > CPU_LIMIT && formB.monitoredInfo.getProcessCPUpercent() <= CPU_LIMIT) {
                 selected = 1;
-            else if (formB.monitoredInfo.getNetworkBandwidthUsage() > 0.75)
+            }
+            else if (formB.monitoredInfo.getProcessCPUpercent() > CPU_LIMIT && formA.monitoredInfo.getProcessCPUpercent() >= CPU_LIMIT) {
                 selected = 0;
-            else
-                selected = 0;*/
+            }
+            else {
+                System.out.println("The server is busy! : " + "Bandwidth : " + formA.monitoredInfo.getNetworkBandwidthUsage() + "/" + formB.monitoredInfo.getNetworkBandwidthUsage());
+                selected = formA.monitoredInfo.getNetworkBandwidthUsage() < formB.monitoredInfo.getNetworkBandwidthUsage() ? 0 : 1;
+            }
 
             return selected;
         }

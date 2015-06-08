@@ -8,8 +8,8 @@ import java.net.Socket;
  * Created by KangGyu on 2015-05-01.
  */
 public class SocketHandler {
-    public static final String hostA = "192.168.0.105";
-    public static final String hostB = "192.168.0.101";
+    public static final String hostA = "192.168.0.2";
+    public static final String hostB = "192.168.0.2";
     public static final int localPort = 2000;
     public static final int remotePort = 3000;
 
@@ -36,7 +36,9 @@ public class SocketHandler {
 
             while (true) {
                 Socket socket = proxyServerSocket.accept();
-                new ProxyServerThread(socket, LoadBalancer.ResourceMonitorThread.selectServer() == 0 ? hostA : hostB).start();
+                int selected = LoadBalancer.ResourceMonitorThread.selectServer();
+                System.out.println(selected == 0 ? "Server A is selected" : "Server B is selected");
+                new ProxyServerThread(socket, selected == 0 ? hostA : hostB).start();
             }
         }
         catch (Exception e) {
