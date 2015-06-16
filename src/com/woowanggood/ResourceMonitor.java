@@ -23,7 +23,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
  * Created by SophiesMac on 15. 5. 10..
  */
 public class ResourceMonitor {
-    private final String REMOTE_HOST = "192.168.0.2";
+    private final String REMOTE_HOST = "192.168.0.102";
     private final int REMOTE_PORT = 7171;
     private String localHost_externalAddress;
     private int localPort;

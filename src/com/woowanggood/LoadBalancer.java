@@ -11,7 +11,7 @@ import java.net.Socket;
  * Created by SophiesMac on 15. 5. 13..
  */
 public class LoadBalancer {
-    public static final String host = "192.168.0.2"; // proxy server ip
+    public static final String host = "192.168.0.102"; // proxy server ip
     public static final int port = 7171; // for monitoring resource
 
     //TESTMAIN
@@ -78,34 +78,41 @@ public class LoadBalancer {
 
         public static int selectServer() {
             int selected = 0;
-            final double CPU_LIMIT = 0.5;
-            final long VM_LIMIT = 2000000000;
+            final double CPU_LIMIT = 0.7;
+            final long VM_LIMIT = 100 * 1024 * 1024;
 
-            System.out.println("CPU : " + formA.monitoredInfo.getProcessCPUpercent() + "/" + formB.monitoredInfo.getProcessCPUpercent());
-            System.out.println("VM : " + formA.monitoredInfo.getAvailableVMsize() + "/" + formB.monitoredInfo.getAvailableVMsize());
+            /*System.out.println("CPU : " + formA.monitoredInfo.getProcessCPUpercent() + "/" + formB.monitoredInfo.getProcessCPUpercent());
+            System.out.println("VM : " + formA.monitoredInfo.getAvailableVMsize() + "/" + formB.monitoredInfo.getAvailableVMsize());*/
 
             if (formA.monitoredInfo.getProcessCPUpercent() <= CPU_LIMIT && formB.monitoredInfo.getProcessCPUpercent() <= CPU_LIMIT) {
                 if (formA.monitoredInfo.getAvailableVMsize() >= VM_LIMIT && formB.monitoredInfo.getAvailableVMsize() >= VM_LIMIT) {
                     selected = formA.monitoredInfo.getNetworkBandwidthUsage() < formB.monitoredInfo.getNetworkBandwidthUsage() ? 0 : 1;
-                } else if (formA.monitoredInfo.getAvailableVMsize() < VM_LIMIT && formB.monitoredInfo.getAvailableVMsize() >= VM_LIMIT) {
+                    System.out.println(selected == 0 ? "Server A is selected(Network bandwidth usage : A < B)" : "Server B is selected(Network bandwidth usage : B < A)");
+                }
+                else if (formA.monitoredInfo.getAvailableVMsize() < VM_LIMIT && formB.monitoredInfo.getAvailableVMsize() >= VM_LIMIT) {
                     selected = 1;
-                } else if (formB.monitoredInfo.getAvailableVMsize() < VM_LIMIT && formA.monitoredInfo.getAvailableVMsize() >= VM_LIMIT) {
+                    System.out.println("Server B is selected(A exceeds limit of available VM size)");
+                }
+                else if (formB.monitoredInfo.getAvailableVMsize() < VM_LIMIT && formA.monitoredInfo.getAvailableVMsize() >= VM_LIMIT) {
                     selected = 0;
+                    System.out.println("Server A is selected(B exceeds limit of available VM size)");
                 }
                 else {
-                    System.out.println("The server is busy! : " + "Bandwidth : " + formA.monitoredInfo.getNetworkBandwidthUsage() + "/" + formB.monitoredInfo.getNetworkBandwidthUsage());
                     selected = formA.monitoredInfo.getNetworkBandwidthUsage() < formB.monitoredInfo.getNetworkBandwidthUsage() ? 0 : 1;
+                    System.out.println(selected == 0 ? "Server A is selected(Network bandwidth usage : A < B)" : "Server B is selected(Network bandwidth usage : B < A");
                 }
             }
             else if (formA.monitoredInfo.getProcessCPUpercent() > CPU_LIMIT && formB.monitoredInfo.getProcessCPUpercent() <= CPU_LIMIT) {
                 selected = 1;
+                System.out.println("Server B is selected(A exceeds limit of process CPU usage)");
             }
             else if (formB.monitoredInfo.getProcessCPUpercent() > CPU_LIMIT && formA.monitoredInfo.getProcessCPUpercent() >= CPU_LIMIT) {
                 selected = 0;
+                System.out.println("Server A is selected(B exceeds limit of process CPU usage)");
             }
             else {
-                System.out.println("The server is busy! : " + "Bandwidth : " + formA.monitoredInfo.getNetworkBandwidthUsage() + "/" + formB.monitoredInfo.getNetworkBandwidthUsage());
                 selected = formA.monitoredInfo.getNetworkBandwidthUsage() < formB.monitoredInfo.getNetworkBandwidthUsage() ? 0 : 1;
+                System.out.println(selected == 0 ? "Server A is selected(Network bandwidth usage : A < B)" : "Server B is selected(Network bandwidth usage : B < A)");
             }
 
             return selected;
