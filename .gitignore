@@ -37,8 +37,6 @@ crashlytics-build.properties
 
 # etc
 *.txt
-*.class
-*.ts
 
 target/
 /tmp/

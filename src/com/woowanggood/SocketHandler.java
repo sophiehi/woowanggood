@@ -4,9 +4,6 @@ import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 
-/**
- * Created by KangGyu on 2015-05-01.
- */
 public class SocketHandler {
     public static final String hostA = "192.168.0.107";
     public static final String hostB = "192.168.0.106";
@@ -22,33 +19,29 @@ public class SocketHandler {
             try {
                 // Create a ServerSocket to listen for connections with clients
                 proxyServerSocket = new ServerSocket(localPort);
-                /*new Thread() {
+                new Thread() {
                     @Override
                     public void run() {
                         new LoadBalancer().start();
                     }
-                }.start();*/
-            }
-            catch (IOException e) {
+                }.start();
+            } catch (IOException e) {
                 System.out.println("proxyServerSocket open error");
                 e.printStackTrace();
             }
 
             while (true) {
                 Socket socket = proxyServerSocket.accept();
-                int selected = LoadBalancer.ResourceMonitorThread.selectServer();
-                //System.out.println(selected == 0 ? "Server A is selected" : "Server B is selected");
-                new ProxyServerThread(socket, selected == 0 ? hostA : hostB).start();
+                int serverNumber = LoadBalancer.ResourceMonitorThread.selectServer();
+                new ProxyServerThread(socket, serverNumber == 0 ? hostA : hostB).start();
             }
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             System.out.println("runProxyServer part error");
             e.printStackTrace();
         }
     }
 
-    // A thread to read the client's requests and pass them to the server.
-    // A separate thread for asynchronous.
+    // A asynchronous thread to read the client's requests and pass them to the server.
     static class ProxyServerThread extends Thread {
         private Socket clientSocket;
         private Socket serverSocket;
@@ -70,8 +63,7 @@ public class SocketHandler {
             try {
                 disWithClient = new DataInputStream(clientSocket.getInputStream());
                 dosWithClient = new DataOutputStream(clientSocket.getOutputStream());
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 System.out.println("open stream with client error\n" + e.getMessage());
             }
 
@@ -80,8 +72,7 @@ public class SocketHandler {
                 disWithServer = new DataInputStream(serverSocket.getInputStream());
                 dosWithServer = new DataOutputStream(serverSocket.getOutputStream());
                 dosWithServer.writeUTF(clientSocket.getInetAddress().getHostAddress());
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 System.out.println("connect server socket\n" + e.getMessage());
             }
 
@@ -105,34 +96,29 @@ public class SocketHandler {
                 }
             }.start();
 
-            // Read the server's responses
-            // and pass them back to the client.
+            // Read the server's responses and pass them back to the client.
             try {
                 int bytes;
                 while ((bytes = disWithServer.read(reply)) != -1) {
                     dosWithClient.write(reply, 0, bytes);
                     dosWithClient.flush();
                 }
-            }
-            catch (IOException e) {
+            } catch (IOException e) {
                 System.out.println("Server-To-Client write error\n" + e.getMessage());
-            }
-            finally {
+            } finally {
                 try {
                     if (serverSocket != null)
                         serverSocket.close();
                     if (clientSocket != null)
                         clientSocket.close();
-                }
-                catch (Exception e) {
+                } catch (Exception e) {
                     System.out.println("Sockets close\n" + e.getMessage());
                 }
             }
 
             try {
                 dosWithClient.close();
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 System.out.println("dosWithClient close error\n" + e.getMessage());
             }
         }

@@ -19,68 +19,69 @@ import java.util.concurrent.ScheduledFuture;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-/**
- * Created by SophiesMac on 15. 5. 10..
- */
 public class ResourceMonitor {
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private final String REMOTE_HOST = "192.168.0.102";
     private final int REMOTE_PORT = 7171;
-    private String localHost_externalAddress;
-    private int localPort;
 
+    private String externalAddress;
+    private int localPort;
     private OperatingSystemMXBean osBean =
             (com.sun.management.OperatingSystemMXBean)
                     ManagementFactory.getOperatingSystemMXBean();
 
-    /** process */
-    private double processCPUpercent ;
-    private long availableVMsize ;
+    /**
+     * process
+     */
+    private double processCPUPercent;
+    private long availableVMsize;
 
-    /** network */
+    /**
+     * network
+     */
     private double networkBandwidthUsage;
     private long availableNetworkBandwith;
 
-    /** system */
-    private double systemCPUpercent ;
-    private double systemPMpercent ;
+    /**
+     * system
+     */
+    private double systemCPUPercent;
+    private double systemPMPercent;
 
-    /** num of clients or sessions */
+    /**
+     * num of clients or sessions
+     */
     private int numOfThreads;
     private int numOfSessions;
 
-    /** socket & outputStream */
+    /**
+     * socket & output stream
+     */
     private Socket socket;
     private DataOutputStream dosWithServer;
 
-    /** scheduler */
     public ResourceMonitor() throws IOException, InterruptedException, SigarException {
         new NetworkMonitor(new Sigar());
 
         this.socket = new Socket(REMOTE_HOST, REMOTE_PORT);
         this.dosWithServer = new DataOutputStream(socket.getOutputStream());
-
         this.networkBandwidthUsage = -1.0;
         this.availableNetworkBandwith = -1;
-
-        this.processCPUpercent = osBean.getProcessCpuLoad();
-        this.availableVMsize  = osBean.getCommittedVirtualMemorySize();
-        this.systemCPUpercent = osBean.getSystemCpuLoad();
-        this.systemPMpercent  = osBean.getFreePhysicalMemorySize() / osBean.getTotalPhysicalMemorySize();
-
-        //get localIP
-        this.localHost_externalAddress = getIP();
-
-        //get localPort
+        this.processCPUPercent = osBean.getProcessCpuLoad();
+        this.availableVMsize = osBean.getCommittedVirtualMemorySize();
+        this.systemCPUPercent = osBean.getSystemCpuLoad();
+        this.systemPMPercent = osBean.getFreePhysicalMemorySize() / osBean.getTotalPhysicalMemorySize();
+        this.externalAddress = getIP();
         this.localPort = socket.getLocalPort();
     }
 
     public String getIP() throws SocketException {
-        String tmp = "A";
-        Enumeration<NetworkInterface> nets = NetworkInterface.getNetworkInterfaces();
-        for (NetworkInterface netint : Collections.list(nets)){
-            tmp = findExternalIP(netint);
-            if (!tmp.equals("A")) {
-                return tmp;
+        String result = "A";
+        Enumeration<NetworkInterface> networkInterfaceEnum = NetworkInterface.getNetworkInterfaces();
+        for (NetworkInterface networkInterface : Collections.list(networkInterfaceEnum)) {
+            result = findExternalIP(networkInterface);
+            if (!result.equals("A")) {
+                return result;
             }
         }
         return "B";
@@ -89,67 +90,53 @@ public class ResourceMonitor {
     public String findExternalIP(NetworkInterface netint) throws SocketException {
         Enumeration<InetAddress> inetAddresses = netint.getInetAddresses();
         for (InetAddress inetAddress : Collections.list(inetAddresses)) {
-            boolean check1 = inetAddress.toString().contains(".");
-            boolean check2 = !inetAddress.toString().contains("127.0.0.1");
-            // if(netint.getDisplayName().contains("en0")){
-            if (check1 && check2){
+            if (inetAddress.toString().contains(".") && !inetAddress.toString().contains("127.0.0.1")) {
                 return inetAddress.toString().replace("/", "");
             }
         }
         return "A";
     }
 
-    private final ScheduledExecutorService scheduler =
-            Executors.newScheduledThreadPool(1);
-
     public void startReporting() throws IOException {
         final Runnable beeper = new Runnable() {
             public void run() {
-                System.out.println("update & report()");
-                try {updateInfo();} catch (SigarException e) { e.printStackTrace();}
                 try {
-                    reportToLoadBalancerPeriodically();
+                    updateInformation();
+                } catch (SigarException e) {
+                    e.printStackTrace();
+                }
+                try {
+                    reportToLoadbalancerPeriodically();
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
             }
         };
-        final ScheduledFuture<?> reportHandle =
+
+        final ScheduledFuture<?> reportSchedule =
                 scheduler.scheduleAtFixedRate(beeper, 0, 1, SECONDS);
     }
 
-    public void updateInfo() throws SigarException {
-        System.out.println("update()");
-        this.processCPUpercent = osBean.getProcessCpuLoad();
+    public void updateInformation() throws SigarException {
+        this.processCPUPercent = osBean.getProcessCpuLoad();
         this.availableVMsize = osBean.getCommittedVirtualMemorySize();
-        this.systemCPUpercent = osBean.getSystemCpuLoad();
-        this.systemPMpercent  = osBean.getFreePhysicalMemorySize() / osBean.getTotalPhysicalMemorySize();
-
-        //todo change name, Usage -> TransmittedBytes
+        this.systemCPUPercent = osBean.getSystemCpuLoad();
+        this.systemPMPercent = osBean.getFreePhysicalMemorySize() / osBean.getTotalPhysicalMemorySize();
         this.networkBandwidthUsage = NetworkMonitor.getMetric()[1];
-        //todo change name, avalable -> max ?
         this.availableNetworkBandwith = -1;
-        //TODO TODO 금요일에 두대로 iperf로 재보기 : performance, MTU ??
-        //https://iperf.fr/
-
-        //ref: http://sourceforge.net/projects/ibm/files/
-
 
         System.out.println("System resource usage : "
-                + this.localHost_externalAddress + ":" + this.localPort + " "
-                + this.processCPUpercent + ", " + this.availableVMsize + ", "
-                + this.networkBandwidthUsage + ", " + this.systemCPUpercent);
+                + this.externalAddress + ":" + this.localPort + " "
+                + this.processCPUPercent + ", " + this.availableVMsize + ", "
+                + this.networkBandwidthUsage + ", " + this.systemCPUPercent);
     }
 
-    public void reportToLoadBalancerPeriodically() throws IOException {
-        MonitoredInfo monitoredInfo = new MonitoredInfo(this.localHost_externalAddress, this.localPort,
-                                        this.processCPUpercent, this.availableVMsize,
-                                        this.networkBandwidthUsage, this.availableNetworkBandwith,
-                                        this.systemCPUpercent, this.systemPMpercent);
+    public void reportToLoadbalancerPeriodically() throws IOException {
+        ResourceUsage resourceUsage = new ResourceUsage(this.externalAddress, this.localPort,
+                this.processCPUPercent, this.availableVMsize,
+                this.networkBandwidthUsage, this.availableNetworkBandwith,
+                this.systemCPUPercent, this.systemPMPercent);
 
-        dosWithServer.writeUTF(monitoredInfo.toString()); // output stream -> socket으로 전송.
-        // dosWithServer.flush();
+        dosWithServer.writeUTF(resourceUsage.toString());
     }
 }
-
-// not yet : Computer A의 전원 꺼졌을 때, B에서 재개하기 (latency 2초 목표?)
